@@ -1,0 +1,2942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-AMC Retirement &amp; Tax-Optimized Capital Allocation Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --font-heading: "Space Grotesk", "Segoe UI", Arial, sans-serif;
+    --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+    --font-mono: "JetBrains Mono", Consolas, ui-monospace, monospace;
+  }
+  :root {
+    --primary: #2ECC40;
+    --primary-dark: #22a233;
+    --ink: #000;
+    --paper: #FAFAFA;
+    --border: 3px solid #000;
+    --shadow: 4px 4px 0 #000;
+    --shadow-sm: 3px 3px 0 #000;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulseWarn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  @keyframes flashHighlight {
+    0% { box-shadow: var(--shadow-sm), 0 0 0 0 rgba(46, 204, 64, 0.45); }
+    100% { box-shadow: var(--shadow-sm), 0 0 0 10px rgba(46, 204, 64, 0); }
+  }
+  @keyframes preFill {
+    from { transform: scaleX(0); } to { transform: scaleX(1); }
+  }
+  @keyframes curtainOut {
+    to { transform: translateY(-101%); }
+  }
+  @keyframes popIn {
+    0% { opacity: 0; transform: translateY(10px) scale(0.985); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  html { background-color: var(--paper); }
+  .pre-curtain {
+    position: fixed; inset: 0; z-index: 999; background: #000; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    animation: curtainOut 0.6s cubic-bezier(.65,0,.35,1) forwards;
+    animation-delay: 0.55s;
+  }
+  .pre-curtain .mark2 { color: var(--primary); }
+  .pre-curtain .name { font-family: var(--font-heading); font-weight: 900; font-size: clamp(1.3rem, 4vw, 1.9rem); letter-spacing: -0.02em; }
+  .pre-curtain .name b { color: var(--primary); }
+  .pre-curtain .sub {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6;
+  }
+  .pre-track { width: 200px; height: 6px; border: 2px solid #fff; overflow: hidden; }
+  .pre-bar {
+    display: block; height: 100%; background: var(--primary); transform-origin: left;
+    animation: preFill 0.85s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pre-curtain { animation: none; opacity: 0; visibility: hidden; transition: opacity 0.3s ease; }
+    .pre-bar { animation: none; transform: scaleX(1); }
+  }
+  body {
+    font-family: var(--font-body);
+    background-color: var(--paper);
+    background-image: radial-gradient(#00000014 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+    margin: 0;
+    padding: 0 0 60px;
+    color: #000;
+  }
+  .site-header {
+    background: #000; color: #fff; border-bottom: var(--border);
+    padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 20; overflow: hidden;
+  }
+  .site-header .mark { color: var(--primary); font-weight: 900; }
+  .site-header .brand {
+    font-family: var(--font-heading); font-weight: 900; font-size: 18px; letter-spacing: -0.02em;
+  }
+  .site-header .tagline {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #fff; opacity: 0.6; margin-left: auto;
+  }
+  .header-sparkle {
+    position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden;
+    animation: headerGlide 18s ease-in-out infinite;
+  }
+  @keyframes headerGlide {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-46px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .header-sparkle { animation: none; }
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 24px 16px 60px; position: relative; }
+  .sparkle-field {
+    position: fixed; top: 0; left: 0; width: 1040px; height: 600px;
+    pointer-events: none; z-index: 0; overflow: visible;
+    animation: swarmFly 32s ease-in-out infinite;
+  }
+  .sparkle-dot {
+    position: absolute; border-radius: 50%; background: var(--c, var(--primary));
+    opacity: var(--o, 0.55);
+    animation: sparkleTwinkle var(--d, 3.2s) ease-in-out infinite;
+    animation-delay: var(--ad, 0s);
+  }
+  @keyframes sparkleTwinkle {
+    0%, 100% { transform: translateY(0) scale(1); opacity: var(--o, 0.55); }
+    50% { transform: translateY(-7px) scale(1.25); opacity: calc(var(--o, 0.55) * 0.35); }
+  }
+  /* Meanders across the whole viewport, weaving through the open gaps between panels;
+     it's z-index'd below the (non-positioned) page content, so opaque cards occlude it
+     and it only reads clearly in the empty margins and background. */
+  @keyframes swarmFly {
+    0%   { transform: translate(74vw, 4vh)  rotate(0deg); }
+    16%  { transform: translate(8vw, 18vh)  rotate(-8deg); }
+    34%  { transform: translate(48vw, 50vh) rotate(6deg); }
+    50%  { transform: translate(82vw, 68vh) rotate(-4deg); }
+    68%  { transform: translate(20vw, 82vh) rotate(7deg); }
+    84%  { transform: translate(55vw, 30vh) rotate(-5deg); }
+    100% { transform: translate(74vw, 4vh)  rotate(0deg); }
+  }
+  @media (max-width: 600px) {
+    .sparkle-field { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sparkle-field, .sparkle-dot { animation: none; }
+  }
+  .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  .sidebar {
+    position: sticky; top: 76px; max-height: calc(100vh - 92px);
+    overflow-y: auto; padding-right: 6px;
+  }
+  .sidebar::-webkit-scrollbar { width: 7px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #000; border-radius: 0; }
+  .main { min-width: 0; }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; max-height: none; overflow: visible; padding-right: 0; }
+  }
+  h1 {
+    font-family: var(--font-heading);
+    font-size: 26px; margin: 0 0 6px; font-weight: 900; letter-spacing: -0.02em;
+    animation: fadeInUp 0.5s ease-out both;
+  }
+  h1 b { color: var(--primary-dark); }
+  p.subtitle {
+    font-family: var(--font-mono);
+    color: #000; opacity: 0.65; font-size: 11.5px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 24px;
+    animation: fadeInUp 0.5s ease-out both;
+  }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; position: relative; }
+  .tab-btn {
+    font-family: var(--font-heading);
+    padding: 10px 20px; border: var(--border); background: #fff; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: #000; text-transform: uppercase; letter-spacing: 0.03em;
+    box-shadow: var(--shadow-sm); transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  }
+  .tab-btn:hover { background: #f3f4f6; transform: translate(-1px, -1px); box-shadow: var(--shadow); }
+  .tab-btn.active { color: #000; background: var(--primary); }
+  .tab-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+  .tab-indicator {
+    position: absolute; bottom: -10px; left: 0; height: 3px; background: var(--ink);
+    transition: transform 0.3s cubic-bezier(.65,0,.35,1), width 0.3s cubic-bezier(.65,0,.35,1);
+    pointer-events: none;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: popIn 0.4s cubic-bezier(.22,1,.36,1) both; }
+
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease-out, transform 0.55s cubic-bezier(.22,1,.36,1); }
+  .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+  .grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+  details.input-group {
+    background: #fff; border: var(--border);
+    padding: 0 18px 4px; box-shadow: var(--shadow-sm);
+    animation: fadeInUp 0.5s ease-out both;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  details.input-group[open] { padding-bottom: 16px; }
+  details.input-group:hover { box-shadow: var(--shadow); transform: translate(-1px, -1px); }
+  details.input-group summary {
+    font-family: var(--font-heading);
+    cursor: pointer; font-weight: 700; font-size: 12.5px; color: #000;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 13px 0; list-style: none; display: flex; align-items: center; justify-content: space-between;
+    user-select: none;
+  }
+  details.input-group summary::-webkit-details-marker { display: none; }
+  details.input-group summary::after {
+    content: '▾'; color: var(--primary-dark); transition: transform 0.2s ease; margin-left: 8px; font-size: 14px;
+  }
+  details.input-group:not([open]) summary::after { transform: rotate(-90deg); }
+  .grid details.input-group:nth-child(1) { animation-delay: 0.05s; }
+  .grid details.input-group:nth-child(2) { animation-delay: 0.10s; }
+  .grid details.input-group:nth-child(3) { animation-delay: 0.15s; }
+  .grid details.input-group:nth-child(4) { animation-delay: 0.20s; }
+  .grid details.input-group:nth-child(5) { animation-delay: 0.25s; }
+
+  .cards .card:nth-child(1) { animation-delay: 0.05s; }
+  .cards .card:nth-child(2) { animation-delay: 0.10s; }
+  .cards .card:nth-child(3) { animation-delay: 0.15s; }
+  .cards .card:nth-child(4) { animation-delay: 0.20s; }
+  .cards .card:nth-child(5) { animation-delay: 0.25s; }
+  .cards .card:nth-child(6) { animation-delay: 0.30s; }
+  .cards .card:nth-child(7) { animation-delay: 0.35s; }
+  .cards .card:nth-child(8) { animation-delay: 0.40s; }
+  .cards .card:nth-child(9) { animation-delay: 0.45s; }
+  .cards .card:nth-child(10) { animation-delay: 0.50s; }
+
+  label { display: block; font-size: 12px; font-weight: 700; color: #000; margin-top: 10px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.02em; }
+  input[type="number"], input[type="text"], select {
+    width: 100%; padding: 7px 9px; font-size: 14px; border: 2px solid #000;
+    border-radius: 0; outline: none; background: #fff; color: #000;
+    transition: box-shadow 0.15s ease, transform 0.12s ease;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, select:focus {
+    box-shadow: 3px 3px 0 var(--primary-dark); transform: translate(-1px, -1px);
+  }
+  input[readonly] {
+    background: #f0f0f0; color: #444; cursor: not-allowed;
+  }
+  input[readonly]:focus { box-shadow: none; transform: none; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card {
+    background: #fff; border-radius: 0; padding: 14px 16px;
+    box-shadow: var(--shadow-sm); border: var(--border); border-left: 6px solid var(--primary-dark);
+    animation: fadeInUp 0.45s ease-out both;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .card:hover { box-shadow: var(--shadow); transform: translate(-2px, -2px); }
+  .card.updated { animation: fadeInUp 0.45s ease-out both, flashHighlight 0.6s ease-out; }
+  .card.b { border-left-color: #059669; }
+  .card.c { border-left-color: #d97706; }
+  .card.d { border-left-color: #7c3aed; }
+  .card .label { font-family: var(--font-mono); font-size: 10.5px; color: #000; opacity: 0.6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .card .value { font-family: var(--font-heading); font-size: 19px; font-weight: 900; margin-top: 4px; transition: color 0.2s ease; }
+
+  .panel {
+    background: #fff; border-radius: 0; padding: 18px 20px; box-shadow: var(--shadow-sm); border: var(--border); margin-bottom: 20px;
+  }
+  .panel:not(.reveal) { animation: fadeInUp 0.5s ease-out both; animation-delay: 0.1s; }
+  .panel h2 { font-family: var(--font-heading); }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: #000; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 900; }
+
+  button {
+    border-radius: 0; transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.15s ease;
+  }
+  button:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow); }
+  button:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #000; }
+
+  .range-btn {
+    padding: 6px 13px; font-size: 12px; font-weight: 700; border-radius: 0;
+    border: 2px solid #000; background: #fff; color: #000; cursor: pointer; text-transform: uppercase;
+  }
+  .range-btn.active { background: var(--primary); border-color: #000; color: #000; }
+
+  canvas { width: 100%; height: 300px; display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid #d1d5db; white-space: nowrap; }
+  th { background: #000; color: #fff; position: sticky; top: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+  thead tr.group-row th {
+    background: var(--primary-dark); color: #000; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.03em; text-align: center; top: 0;
+  }
+  thead tr.group-row + tr.col-row th { top: 26px; }
+  td:first-child, th:first-child { text-align: left; }
+  .table-scroll { max-height: 420px; overflow: auto; border: var(--border); }
+  tbody tr { transition: background-color 0.15s ease; animation: fadeInUp 0.35s ease-out both; }
+  tbody tr:nth-child(even) { background-color: #f4f4f4; }
+  tbody tr:hover { background-color: #eaffec; }
+  .depleted { color: #9ca3af; }
+  .surplus-positive { color: #059669; font-weight: 700; }
+  .surplus-negative { color: #b91c1c; font-weight: 700; }
+  .toggle-row { margin-bottom: 10px; font-size: 13px; }
+  .note { font-size: 11.5px; color: #000; opacity: 0.65; margin-top: 10px; line-height: 1.5; }
+  .note.warn { animation: pulseWarn 1.6s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="sparkle-field" id="sparkleField" aria-hidden="true"></div>
+<div class="pre-curtain" id="preCurtain" role="status" aria-label="Loading">
+  <svg class="mark2" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+  <div class="name"><b>Capital</b> Planner</div>
+  <div class="sub">Loading your simulator</div>
+  <div class="pre-track"><span class="pre-bar"></span></div>
+</div>
+<div class="site-header">
+  <div class="header-sparkle" id="headerSparkleField" aria-hidden="true"></div>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mark" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+  <span class="brand"><b>Capital</b> Planner</span>
+  <span class="tagline">Live inputs · Instant recalculation</span>
+</div>
+<div class="wrap">
+  <h1><b>Multi-AMC</b> Retirement &amp; Tax-Optimized Capital Allocation Simulator</h1>
+  <p class="subtitle">Change any input below — the summary, 40-year table, and chart recalculate instantly.</p>
+
+  <div class="tabs" id="tabsRow">
+    <button type="button" class="tab-btn active" data-tab="retirement">Retirement Plan</button>
+    <button type="button" class="tab-btn" data-tab="budget">India Budgeting</button>
+    <button type="button" class="tab-btn" data-tab="invest">Investment Decision</button>
+    <button type="button" class="tab-btn" data-tab="tax">Tax on Withdrawals</button>
+    <button type="button" class="tab-btn" data-tab="global">Resident vs NRA Tax</button>
+    <span class="tab-indicator" id="tabIndicator"></span>
+  </div>
+
+  <div id="tab-retirement" class="tab-panel active">
+  <div class="layout">
+  <div class="sidebar">
+  <div class="grid">
+    <details class="input-group" open>
+      <summary>Domestic Corpus &amp; Buckets</summary>
+      <label for="totalPrincipal">Total Principal (₹)</label>
+      <input type="number" id="totalPrincipal" value="65000000" step="100000">
+
+      <label for="bucketAPct">Bucket A — Arbitrage Allocation (%)</label>
+      <input type="number" id="bucketAPct" value="50" step="1" min="0" max="100">
+
+      <label for="bucketAReturn">Bucket A Annualized Return (%)</label>
+      <input type="number" id="bucketAReturn" value="6.0" step="0.1">
+
+      <label for="bucketBPct">Bucket B — Hybrid Growth Allocation (%)</label>
+      <input type="number" id="bucketBPct" value="40" step="1" min="0" max="100">
+
+      <label for="bucketBReturn">Bucket B Annualized Return (%)</label>
+      <input type="number" id="bucketBReturn" value="11.0" step="0.1">
+
+      <label for="bucketCPct">Bucket C — Liquid / Emergency Buffer Allocation (%)</label>
+      <input type="number" id="bucketCPct" value="10" step="1" min="0" max="100">
+
+      <label for="bucketCReturn">Bucket C Annualized Return (%)</label>
+      <input type="number" id="bucketCReturn" value="6.5" step="0.1">
+
+      <div class="note" id="allocationCheck"></div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>Withdrawal &amp; Inflation</summary>
+      <label for="currentAge">Current Age</label>
+      <input type="number" id="currentAge" value="38" step="1" min="18" max="90">
+
+      <label for="monthlyWithdrawal">Initial Monthly Withdrawal (₹)</label>
+      <input type="number" id="monthlyWithdrawal" value="300000" step="1000">
+
+      <label for="inflationRate">Annual Inflation / Withdrawal Escalation (%)</label>
+      <input type="number" id="inflationRate" value="5.0" step="0.1">
+
+      <label for="horizon">Simulation Horizon (Years)</label>
+      <input type="number" id="horizon" value="40" step="1" min="1" max="60">
+
+      <label for="swrRate">Safe Withdrawal Rate for FIRE Number (%)</label>
+      <input type="number" id="swrRate" value="4.0" step="0.1">
+    </details>
+
+    <details class="input-group">
+      <summary>Offshore US 401(k) Layer</summary>
+      <label for="usdPrincipal">401(k) Principal (USD)</label>
+      <input type="number" id="usdPrincipal" value="310000" step="1000">
+
+      <label for="usdReturn">US Equity Annualized Return (%)</label>
+      <input type="number" id="usdReturn" value="8.0" step="0.1">
+
+      <label for="spotRate">Spot Exchange Rate (INR per USD)</label>
+      <input type="number" id="spotRate" value="95.01845" step="0.001">
+
+      <label for="depreciation">INR Annual Depreciation vs USD (%)</label>
+      <input type="number" id="depreciation" value="3.5" step="0.1">
+    </details>
+
+    <details class="input-group">
+      <summary>US Social Security (SSA)</summary>
+      <label class="toggle-row"><input type="checkbox" id="excludeSSA"> Exclude Social Security entirely (conservative / worst-case planning)</label>
+
+      <label for="claimAge">Benefit Claim Age</label>
+      <select id="claimAge">
+        <option value="62">62 — $2,812/mo</option>
+        <option value="63">63 — $3,041/mo</option>
+        <option value="64">64 — $3,274/mo</option>
+        <option value="65">65 — $3,570/mo</option>
+        <option value="66">66 — $3,865/mo</option>
+        <option value="67" selected>67 — $4,162/mo (Full Retirement Age)</option>
+        <option value="68">68 — $4,401/mo</option>
+        <option value="69">69 — $4,749/mo</option>
+        <option value="70">70 — $5,200/mo (Max)</option>
+      </select>
+
+      <label for="baseBenefit">Base Monthly Benefit at Claim Age (USD, auto-filled — editable)</label>
+      <input type="number" id="baseBenefit" value="4162" step="1">
+
+      <label for="colaRate">Annual COLA Adjustment (%)</label>
+      <input type="number" id="colaRate" value="2.5" step="0.1">
+
+      <label class="toggle-row"><input type="checkbox" id="includeSpouseSSA" checked> Include Spouse's Social Security</label>
+
+      <label for="spouseCurrentAge">Spouse's Current Age</label>
+      <input type="number" id="spouseCurrentAge" value="32" step="1" min="0">
+
+      <label for="spouseClaimAge">Spouse's Benefit Claim Age</label>
+      <select id="spouseClaimAge">
+        <option value="62">62 (Early — reduced spousal benefit)</option>
+        <option value="63">63</option>
+        <option value="64">64</option>
+        <option value="65">65</option>
+        <option value="66">66</option>
+        <option value="67" selected>67 (Full Retirement Age)</option>
+        <option value="68">68</option>
+        <option value="69">69</option>
+        <option value="70">70</option>
+      </select>
+
+      <label for="spouseBaseBenefit">Spouse's Base Monthly Benefit (USD, auto = 50% of primary's benefit — editable)</label>
+      <input type="number" id="spouseBaseBenefit" value="2081" step="1">
+      <div class="note" id="spouseBenefitNote">Auto-calculated as 50% of the primary's base monthly benefit (standard spousal SSA rule). Edit the field directly to override with a custom amount.</div>
+    </details>
+
+    <details class="input-group">
+      <summary>Tax Assumptions (Domestic Capital Gains)</summary>
+      <label for="stcgRate">STCG Rate — held ≤ 12 months (%)</label>
+      <input type="number" id="stcgRate" value="20" step="0.5">
+
+      <label for="ltcgRate">LTCG Rate — held &gt; 12 months (%)</label>
+      <input type="number" id="ltcgRate" value="12.5" step="0.1">
+
+      <label for="numFolios">Number of Folios / PAN Holders</label>
+      <input type="number" id="numFolios" value="3" step="1" min="1" max="10">
+
+      <label for="ltcgExemptionPerFolio">LTCG Exemption per Folio (₹ / year)</label>
+      <input type="number" id="ltcgExemptionPerFolio" value="125000" step="5000">
+    </details>
+  </div>
+
+  <div class="panel" id="saveLoadPanel">
+    <h2>Save / Load Scenarios <span style="font-weight:400;color:#000;opacity:0.6;font-size:11.5px;text-transform:none;">(stored in this browser only)</span></h2>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+      <div style="flex:1; min-width:180px;">
+        <label for="scenarioName">Scenario Name</label>
+        <input type="text" id="scenarioName" placeholder="e.g. Base Case, Aggressive B, Conservative">
+      </div>
+      <button id="saveBtn" type="button" style="padding:9px 16px; background:#2ECC40; color:#000; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Save Scenario</button>
+      <div style="flex:1; min-width:180px;">
+        <label for="scenarioSelect">Saved Scenarios</label>
+        <select id="scenarioSelect"><option value="">— none saved —</option></select>
+      </div>
+      <button id="loadBtn" type="button" style="padding:9px 16px; background:#fff; color:#000; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Load</button>
+      <button id="deleteBtn" type="button" style="padding:9px 16px; background:#dc2626; color:#fff; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Delete</button>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; padding-top:14px; border-top:2px solid #000;">
+      <span style="font-size:12px; font-weight:700; color:#000; text-transform:uppercase;">File Storage:</span>
+      <button id="exportCurrentBtn" type="button" style="padding:8px 14px; background:#fff; color:#000; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Export Current Inputs (.json)</button>
+      <button id="exportAllBtn" type="button" style="padding:8px 14px; background:#fff; color:#000; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Export All Saved Scenarios (.json)</button>
+      <button id="importBtn" type="button" style="padding:8px 14px; background:#000; color:#fff; border:2px solid #000; border-radius:0; font-size:13px; font-weight:700; cursor:pointer; text-transform:uppercase;">Import from File</button>
+      <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;">
+    </div>
+    <div class="note" id="scenarioStatus"></div>
+  </div>
+  </div><!-- /sidebar -->
+
+  <div class="main">
+  <div class="cards" id="summaryCards"></div>
+  <div class="note" id="fireStatus" style="font-weight:600; margin-bottom:14px;"></div>
+
+  <div class="panel">
+    <h2>Combined Global Capital Trajectory (₹)</h2>
+    <div id="chartRangeButtons" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+    <canvas id="chart" width="1100" height="300"></canvas>
+    <div class="note">Blue = Domestic Portfolio (Bucket A + B) &nbsp; | &nbsp; Green = Offshore 401(k) INR Equivalent &nbsp; | &nbsp; Purple (dashed) = Combined Global Total</div>
+  </div>
+
+  <div class="panel">
+    <h2>Expected Drawdown by Asset Allocation (₹)</h2>
+    <canvas id="drawdownChart" width="1100" height="300"></canvas>
+    <div class="note" id="drawdownLegend"></div>
+    <div class="note">Stacked view shows how much of your total capital sits in each bucket/layer over time, and how the mix shifts as domestic buckets deplete and the offshore 401(k) takes over.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Year-by-Year Projection</h2>
+    <label class="toggle-row"><input type="checkbox" id="showAllYears"> Show every year (default shows 5-year milestones)</label>
+    <div class="table-scroll">
+      <table id="resultsTable">
+        <thead>
+          <tr class="group-row">
+            <th colspan="3">Timeline</th>
+            <th>Withdrawal</th>
+            <th colspan="4">Domestic Buckets</th>
+            <th colspan="3">Capital Gains Tax</th>
+            <th colspan="3">Offshore 401(k)</th>
+            <th colspan="2">Social Security</th>
+            <th>Global</th>
+          </tr>
+          <tr class="col-row">
+            <th>Year</th><th>Cal. Year</th><th>Age</th><th>Annual Withdrawal</th>
+            <th>Bucket A</th><th>Bucket B</th><th>Bucket C</th><th>Domestic Total</th>
+            <th>Est. Gain (₹)</th><th>Tax Type</th><th>Est. Tax (₹)</th>
+            <th>401(k) (USD)</th><th>FX Rate</th><th>Offshore (₹)</th>
+            <th>Primary SSA ($)</th><th>Spouse SSA ($)</th><th>Combined Global (₹)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="footnote"></p>
+  </div>
+  </div><!-- /main -->
+  </div><!-- /layout -->
+  </div><!-- /tab-retirement -->
+
+  <div id="tab-budget" class="tab-panel">
+    <div class="layout">
+    <div class="sidebar">
+    <div class="grid">
+      <details class="input-group" open>
+        <summary>Monthly Household Expenses (India, ₹)</summary>
+        <label for="bHousing">Housing / Rent / Home Maintenance</label>
+        <input type="number" id="bHousing" value="60000" step="500">
+
+        <label for="bGroceries">Groceries &amp; Food</label>
+        <input type="number" id="bGroceries" value="30000" step="500">
+
+        <label for="bUtilities">Utilities (Electricity, Water, Gas, Internet)</label>
+        <input type="number" id="bUtilities" value="12000" step="500">
+
+        <label for="bTransport">Transportation &amp; Fuel</label>
+        <input type="number" id="bTransport" value="20000" step="500">
+
+        <label for="bHealthcare">Healthcare &amp; Insurance Premiums</label>
+        <input type="number" id="bHealthcare" value="15000" step="500">
+
+        <label for="bHelp">Domestic Help &amp; Household Services</label>
+        <input type="number" id="bHelp" value="6000" step="500">
+
+        <label for="bTravel">Travel &amp; Vacations</label>
+        <input type="number" id="bTravel" value="50000" step="500">
+
+        <label for="bDiscretionary">Discretionary (Dining, Entertainment)</label>
+        <input type="number" id="bDiscretionary" value="30000" step="500">
+
+        <label for="bMisc">Miscellaneous / Buffer</label>
+        <input type="number" id="bMisc" value="10000" step="500">
+
+        <label for="bInflation">Household Expense Inflation (%/yr)</label>
+        <input type="number" id="bInflation" value="5" step="0.1">
+      </details>
+
+      <details class="input-group" open>
+        <summary>Kids' Education Planner</summary>
+        <label for="eduRefYear">Reference Year (ages below are as of this year)</label>
+        <input type="number" id="eduRefYear" value="2027" step="1">
+
+        <label for="kid1Age">Kid 1 — Age in Reference Year</label>
+        <input type="number" id="kid1Age" value="10" step="1" min="0" max="30">
+
+        <label for="kid2Age">Kid 2 — Age in Reference Year</label>
+        <input type="number" id="kid2Age" value="14" step="1" min="0" max="30">
+
+        <label for="schoolAnnualCost">Current Annual School Cost per Kid (₹, today)</label>
+        <input type="number" id="schoolAnnualCost" value="300000" step="5000">
+
+        <label for="collegeStartAge">College Start Age</label>
+        <input type="number" id="collegeStartAge" value="18" step="1" min="15" max="25">
+
+        <label for="collegeDuration">College Duration (years)</label>
+        <input type="number" id="collegeDuration" value="4" step="1" min="1" max="8">
+
+        <label for="collegeAnnualCost">Current Annual College Cost per Kid (₹, today)</label>
+        <input type="number" id="collegeAnnualCost" value="500000" step="10000">
+
+        <label for="eduInflation">Education Cost Inflation (%/yr)</label>
+        <input type="number" id="eduInflation" value="8" step="0.1">
+
+        <div class="note" id="eduAllocationNote"></div>
+      </details>
+    </div>
+    </div><!-- /sidebar -->
+
+    <div class="main">
+    <div class="cards" id="budgetCards"></div>
+
+    <div class="panel">
+      <h2>Combined Annual Cash Need (Living + Kids' Education, ₹)</h2>
+      <canvas id="budgetChart" width="1100" height="300"></canvas>
+      <div class="note">Blue = Household Living Expenses &nbsp; | &nbsp; Amber = Kids' Education Cost &nbsp; | &nbsp; Purple (dashed) = Combined Total &nbsp; | &nbsp; Teal (dashed) = Retirement Plan Withdrawal</div>
+    </div>
+
+    <div class="panel">
+      <h2>Retirement Withdrawal vs. Actual Need — Surplus / Deficit (₹)</h2>
+      <canvas id="surplusChart" width="1100" height="260"></canvas>
+      <div class="note">Green bars = Retirement Plan withdrawal covers (and exceeds) the combined living + education need that year. Red bars = a shortfall — the planned withdrawal falls short of the actual need.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Year-by-Year Education &amp; Budget Projection</h2>
+      <div class="table-scroll">
+        <table id="budgetTable">
+          <thead>
+            <tr class="group-row">
+              <th colspan="2">Timeline</th>
+              <th>Living Expenses</th>
+              <th colspan="3">Kids' Education</th>
+              <th colspan="3">Vs. Retirement Plan</th>
+            </tr>
+            <tr class="col-row">
+              <th>Year</th><th>Cal. Year</th>
+              <th>Annual Household Budget (₹)</th>
+              <th>Kid 1 (Age / Cost)</th><th>Kid 2 (Age / Cost)</th><th>Education Total (₹)</th>
+              <th>Combined Annual Need (₹)</th><th>Retirement Plan Withdrawal (₹)</th><th>Surplus / (Deficit) (₹)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="note" id="budgetFootnote"></p>
+    </div>
+    </div><!-- /main -->
+    </div><!-- /layout -->
+  </div><!-- /tab-budget -->
+
+  <div id="tab-invest" class="tab-panel">
+  <div class="layout">
+  <div class="sidebar">
+  <div class="grid">
+    <details class="input-group" open>
+      <summary>Investment Amount &amp; Horizon</summary>
+      <label for="invAmount">Amount to Invest (₹, lump sum)</label>
+      <input type="number" id="invAmount" value="2000000" step="10000">
+
+      <label for="invHorizon">Investment Horizon (years)</label>
+      <input type="number" id="invHorizon" value="10" step="1" min="1" max="40">
+
+      <label for="invRisk">Risk Tolerance</label>
+      <select id="invRisk">
+        <option value="conservative">Conservative</option>
+        <option value="moderate" selected>Moderate</option>
+        <option value="aggressive">Aggressive</option>
+      </select>
+      <div class="note">The recommended blended portfolio mix below is auto-selected based on this risk tolerance, and its weights can't be edited directly — change the asset class returns instead to stress-test outcomes.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>Expected Annual Returns by Asset Class (%/yr)</summary>
+      <label for="retEquity">Equity Mutual Funds / Index Funds (High Risk)</label>
+      <input type="number" id="retEquity" value="12" step="0.5">
+
+      <label for="retRealEstate">Real Estate (Medium-High Risk)</label>
+      <input type="number" id="retRealEstate" value="9" step="0.5">
+
+      <label for="retGold">Gold / Sovereign Gold Bonds (Medium Risk)</label>
+      <input type="number" id="retGold" value="8" step="0.5">
+
+      <label for="retDebt">Debt Mutual Funds / Bonds (Low-Medium Risk)</label>
+      <input type="number" id="retDebt" value="7" step="0.5">
+
+      <label for="retArbitrage">Arbitrage Funds (Low Risk)</label>
+      <input type="number" id="retArbitrage" value="6" step="0.5">
+
+      <label for="retFD">Fixed Deposit / Debt Fund (Lowest Risk)</label>
+      <input type="number" id="retFD" value="6.5" step="0.5">
+    </details>
+  </div>
+  </div><!-- /sidebar -->
+
+  <div class="main">
+  <div class="cards" id="investCards"></div>
+
+  <div class="panel">
+    <h2>Projected Value by Asset Class Over the Chosen Horizon (₹)</h2>
+    <canvas id="investCompareChart" width="1100" height="300"></canvas>
+    <div class="note">Each bar shows what your lump sum would grow to if invested 100% in that asset class for the chosen horizon, at the expected return you set. The teal bar is your recommended blended portfolio for the selected risk tolerance.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Recommended Blended Portfolio — Year-by-Year Growth (₹)</h2>
+    <canvas id="investGrowthChart" width="1100" height="300"></canvas>
+    <div class="note" id="investAllocationNote"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Year-by-Year Projection — Recommended Portfolio</h2>
+    <div class="table-scroll">
+      <table id="investTable">
+        <thead>
+          <tr class="col-row">
+            <th>Year</th><th>Cal. Year</th><th>Portfolio Value (₹)</th><th>Growth This Year (₹)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="investFootnote"></p>
+  </div>
+  </div><!-- /main -->
+  </div><!-- /layout -->
+  </div><!-- /tab-invest -->
+
+  <div id="tab-tax" class="tab-panel">
+  <div class="layout">
+  <div class="sidebar">
+  <div class="grid">
+    <details class="input-group" open>
+      <summary>Budget-Linked Capital Withdrawal</summary>
+      <label for="txHouseholdBudget">Combined Annual Need (Today, ₹)</label>
+      <input type="number" id="txHouseholdBudget" value="0" step="1000" readonly>
+      <div class="note">Auto-synced from Year 1 of the "Year-by-Year Education &amp; Budget Projection" table on the Budget tab (household budget + kids' education costs) — edit inputs there to change it.</div>
+
+      <label for="txEarnedIncome">Annual Earned / Other Non-Capital Income (₹)</label>
+      <input type="number" id="txEarnedIncome" value="0" step="1000">
+      <div class="note">Salary, pension, rent, or dividends that already cover part of the need without redeeming units. The remaining gap must be funded by a capital (mutual fund) withdrawal.</div>
+
+      <label for="txCostBasisPct">Cost Basis as % of Capital Withdrawal</label>
+      <input type="number" id="txCostBasisPct" value="80" step="1" min="0" max="100">
+      <div class="note">The rest is treated as embedded capital gain. E.g. 80% means every ₹100 withdrawn carries ₹20 of gain.</div>
+
+      <label for="txHoldingPeriod">Holding Period</label>
+      <select id="txHoldingPeriod">
+        <option value="short">≤ 12 months (Short-Term)</option>
+        <option value="long" selected>&gt; 12 months (Long-Term)</option>
+      </select>
+      <div class="note">Assumes equity-oriented mutual fund taxation (arbitrage, equity, and equity-taxed hybrid schemes) — STCG at a flat rate, LTCG at a lower rate with an annual per-PAN exemption.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>Folio Structure &amp; Exemption</summary>
+      <label for="txNumFolios">Number of Folios / PAN Holders Splitting This Withdrawal</label>
+      <input type="number" id="txNumFolios" value="3" step="1" min="1" max="10">
+
+      <label for="txLtcgExemptionPerFolio">LTCG Exemption per Folio (₹ / financial year)</label>
+      <input type="number" id="txLtcgExemptionPerFolio" value="125000" step="5000">
+
+      <label for="txExemptionUsed">LTCG Exemption Already Used per Folio This Year (₹)</label>
+      <input type="number" id="txExemptionUsed" value="0" step="5000">
+      <div class="note">The exemption only offsets long-term gains and resets each financial year. It's applied per folio/PAN, so splitting a withdrawal across more folios can shelter more of the gain.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>Tax Rates</summary>
+      <label for="txStcgRate">STCG Rate — held ≤ 12 months (%)</label>
+      <input type="number" id="txStcgRate" value="20" step="0.5">
+
+      <label for="txLtcgRate">LTCG Rate — held &gt; 12 months (%)</label>
+      <input type="number" id="txLtcgRate" value="12.5" step="0.1">
+    </details>
+
+    <details class="input-group" open>
+      <summary>Yearly Projection</summary>
+      <label for="txProjectionYears">Number of Years to Project</label>
+      <input type="number" id="txProjectionYears" value="5" step="1" min="1" max="21">
+      <div class="note">Each year's capital withdrawal need = that year's Combined Annual Need (from the Year-by-Year Education &amp; Budget Projection table on the Budget tab) minus earned/other income. The embedded-gain proportion is held constant; the LTCG exemption per folio resets in full every year after Year 1 (Year 1 uses the "already used" amount above). Years beyond the Budget tab's 20-year horizon repeat the final year's need.</div>
+    </details>
+  </div>
+  </div><!-- /sidebar -->
+
+  <div class="main">
+  <div class="cards" id="taxCards"></div>
+
+  <div class="panel">
+    <h2>Per-Folio Tax Breakdown</h2>
+    <div class="table-scroll">
+      <table id="taxTable">
+        <thead>
+          <tr class="col-row">
+            <th>Folio</th><th>Withdrawal Share (₹)</th><th>Gain Allocated (₹)</th>
+            <th>LTCG Exemption Remaining (₹)</th><th>Taxable Gain (₹)</th>
+            <th>Tax Payable (₹)</th><th>Net After Tax (₹)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="taxFootnote"></p>
+    <p class="note">This is a simplified planning estimate — it does not model indexation, set-off of prior losses, surcharge/cess, or non-equity (debt/slab-rate) taxation. Consult a tax advisor for filing decisions.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Yearly Tax Projection</h2>
+    <div class="table-scroll">
+      <table id="taxYearlyTable">
+        <thead>
+          <tr class="col-row">
+            <th>Year</th><th>Withdrawal (₹)</th><th>Embedded Gain (₹)</th>
+            <th>Taxable Gain (₹)</th><th>Tax Payable (₹)</th><th>Net Received (₹)</th>
+            <th>Cumulative Tax (₹)</th><th>Cumulative Net (₹)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="taxYearlyFootnote"></p>
+  </div>
+  </div><!-- /main -->
+  </div><!-- /layout -->
+  </div><!-- /tab-tax -->
+
+  <div id="tab-global" class="tab-panel">
+  <div class="layout">
+  <div class="sidebar">
+  <div class="grid">
+    <details class="input-group" open>
+      <summary>India Income Sources (Tax Resident)</summary>
+      <label for="giSalary">Salary / Pension Income (₹/yr)</label>
+      <input type="number" id="giSalary" value="0" step="10000">
+
+      <label for="giInterest">Bank / FD Interest Income (₹/yr)</label>
+      <input type="number" id="giInterest" value="0" step="10000">
+
+      <label for="giRental">Net Rental Income (₹/yr)</label>
+      <input type="number" id="giRental" value="0" step="10000">
+
+      <label for="giDividends">Dividend Income — Indian Equities (₹/yr)</label>
+      <input type="number" id="giDividends" value="0" step="10000">
+
+      <label for="giDebtGains">Debt Mutual Fund / Bond Gains (₹/yr)</label>
+      <input type="number" id="giDebtGains" value="0" step="10000">
+
+      <label for="giOther">Other Income (₹/yr)</label>
+      <input type="number" id="giOther" value="0" step="10000">
+
+      <label for="giStcg">Equity STCG (₹/yr)</label>
+      <input type="number" id="giStcg" value="0" step="10000">
+
+      <label for="giLtcg">Equity LTCG (₹/yr)</label>
+      <input type="number" id="giLtcg" value="0" step="10000">
+      <div class="note">Salary, interest, rental, dividends, debt-fund gains, and other income are pooled and taxed at India's progressive slab rates. Equity STCG/LTCG are taxed separately at flat special rates.</div>
+
+      <label class="toggle-row"><input type="checkbox" id="giIncludeForeignIncome" checked style="width:auto;margin-right:6px;"> Include US-Source Income in India Tax Base (Resident — Worldwide Income)</label>
+      <div class="note">An Indian tax resident is taxed on <strong>worldwide</strong> income, so US-source interest/dividends/rent/capital gains below are added to the India computation too — even where the US itself doesn't tax an NRA on them (e.g. capital gains with &lt;183 days present). A Foreign Tax Credit under the India-US DTAA offsets whatever US tax was actually paid.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>India Slab &amp; Special Rates</summary>
+      <label for="giLtcgExemption">LTCG Exemption Available (₹/yr)</label>
+      <input type="number" id="giLtcgExemption" value="125000" step="5000">
+
+      <label for="giCessRate">Health &amp; Education Cess (%)</label>
+      <input type="number" id="giCessRate" value="4" step="0.5">
+      <div class="note">Uses the FY 2025-26 new-regime slabs (0% to ₹4L, 5% to ₹8L, 10% to ₹12L, 15% to ₹16L, 20% to ₹20L, 25% to ₹24L, 30% above), a ₹75,000 standard deduction against salary, and the Section 87A rebate (nil slab-tax when slab-taxed income ≤ ₹12L). STCG at 20%, LTCG at 12.5% after exemption. Surcharge, old regime, and HRA/80C deductions are not modeled.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>USA Income Sources (Non-Resident Alien)</summary>
+      <label for="usInterest">US Bank / FD Interest ($/yr)</label>
+      <input type="number" id="usInterest" value="0" step="1000">
+      <label class="toggle-row"><input type="checkbox" id="usPortfolioExempt" checked style="width:auto;margin-right:6px;"> Qualifies for Portfolio Interest Exemption</label>
+
+      <label for="usDividends">US Dividends ($/yr)</label>
+      <input type="number" id="usDividends" value="0" step="1000">
+
+      <label for="usRental">US Net Rental Income ($/yr)</label>
+      <input type="number" id="usRental" value="0" step="1000">
+
+      <label for="usCapGains">US Capital Gains ($/yr)</label>
+      <input type="number" id="usCapGains" value="0" step="1000">
+      <label class="toggle-row"><input type="checkbox" id="usPresent183" style="width:auto;margin-right:6px;"> Present ≥183 Days in the US This Year</label>
+
+      <label for="usCapGainsHolding">Holding Period (for India Taxation of This Foreign Asset)</label>
+      <select id="usCapGainsHolding">
+        <option value="short">≤ 24 months (Short-Term)</option>
+        <option value="long" selected>&gt; 24 months (Long-Term)</option>
+      </select>
+
+      <label for="usSpxIncome">SPX 0DTE / Section 1256 Options Net Income ($/yr)</label>
+      <input type="number" id="usSpxIncome" value="0" step="500">
+      <div class="note">SPX (and other broad-based cash-settled index options) are IRC §1256 contracts — gains get a mandatory 60% long-term / 40% short-term blended tax character regardless of the (often same-day) holding period, with open positions marked-to-market at year-end. As a capital-gain-character item, this is only taxed in the US for an NRA who is present ≥183 days; it's always taxed in India at slab rates as worldwide business income from derivatives trading.</div>
+      <div class="note">NRAs owe 0% on US-source interest that qualifies as exempt "portfolio interest" (most publicly-traded bonds/bank deposits). Dividends and non-ECI rental income are taxed via flat FDAP withholding. US-source capital gains are generally untaxed for an NRA unless present 183+ days in the US during the year. As a foreign (non-equity, non-STT) capital asset, India taxes short-term gains at slab rates and long-term gains at a flat 12.5% with no exemption.</div>
+    </details>
+
+    <details class="input-group" open>
+      <summary>USA NRA Withholding Rates</summary>
+      <label for="usInterestRate">Interest Withholding Rate — if not exempt (%)</label>
+      <input type="number" id="usInterestRate" value="30" step="1">
+
+      <label for="usDividendRate">Dividend Withholding Rate (%)</label>
+      <input type="number" id="usDividendRate" value="25" step="1">
+
+      <label for="usRentalRate">Rental Withholding Rate — Gross, No ECI Election (%)</label>
+      <input type="number" id="usRentalRate" value="30" step="1">
+
+      <label for="usCapGainsRate">Capital Gains Rate — if 183-Day Rule Applies (%)</label>
+      <input type="number" id="usCapGainsRate" value="30" step="1">
+
+      <label for="usSpxLtRate">Section 1256 Long-Term Portion Rate — 60% of Gain (%)</label>
+      <input type="number" id="usSpxLtRate" value="20" step="1">
+
+      <label for="usSpxStRate">Section 1256 Short-Term Portion Rate — 40% of Gain (%)</label>
+      <input type="number" id="usSpxStRate" value="30" step="1">
+      <div class="note">Default 25% dividend rate reflects the US-India tax treaty rate; statutory FDAP rate without treaty benefit is 30%. Combined tax uses the FX spot rate from the Retirement Plan tab.</div>
+    </details>
+  </div>
+  </div><!-- /sidebar -->
+
+  <div class="main">
+  <div class="cards" id="globalCards"></div>
+
+  <div class="panel">
+    <h2>India Resident Tax — By Source</h2>
+    <div class="table-scroll">
+      <table id="indiaTaxTable">
+        <thead>
+          <tr class="col-row">
+            <th>Source</th><th>Gross (₹)</th><th>Taxable (₹)</th><th>Basis</th><th>Tax excl. Cess (₹)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="indiaTaxFootnote"></p>
+  </div>
+
+  <div class="panel">
+    <h2>USA NRA Tax — By Source</h2>
+    <div class="table-scroll">
+      <table id="usaTaxTable">
+        <thead>
+          <tr class="col-row">
+            <th>Source</th><th>Gross ($)</th><th>Basis</th><th>Tax ($)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" id="usaTaxFootnote"></p>
+    <p class="note">This is a simplified planning estimate — actual NRA taxation depends on treaty elections, effectively-connected-income choices, FIRPTA (US real property), state taxes, and filing status. Consult a cross-border tax advisor before relying on these figures.</p>
+  </div>
+  </div><!-- /main -->
+  </div><!-- /layout -->
+  </div><!-- /tab-global -->
+</div>
+
+<script>
+(function () {
+  const ids = ['totalPrincipal','bucketAPct','bucketAReturn','bucketBPct','bucketBReturn','bucketCPct','bucketCReturn',
+    'currentAge','monthlyWithdrawal','inflationRate','horizon','swrRate',
+    'usdPrincipal','usdReturn','spotRate','depreciation',
+    'claimAge','baseBenefit','colaRate',
+    'spouseCurrentAge','spouseClaimAge','spouseBaseBenefit',
+    'stcgRate','ltcgRate','numFolios','ltcgExemptionPerFolio'];
+  const el = {};
+  ids.forEach(id => el[id] = document.getElementById(id));
+  const showAllYearsEl = document.getElementById('showAllYears');
+  const includeSpouseSSAEl = document.getElementById('includeSpouseSSA');
+  const excludeSSAEl = document.getElementById('excludeSSA');
+
+  const SSA_TABLE = { 62:2812, 63:3041, 64:3274, 65:3570, 66:3865, 67:4162, 68:4401, 69:4749, 70:5200 };
+
+  // Spousal benefit auto-links to 50% of the primary's base benefit (standard SSA spousal rule)
+  // until the user manually edits the spouse field, at which point it becomes an independent override.
+  let spouseBenefitLinked = true;
+  function syncSpouseBenefitFromPrimary() {
+    if (!spouseBenefitLinked) return;
+    const primary = parseFloat(el.baseBenefit.value) || 0;
+    el.spouseBaseBenefit.value = Math.round(primary * 0.5);
+  }
+
+  el.claimAge.addEventListener('change', () => {
+    el.baseBenefit.value = SSA_TABLE[el.claimAge.value];
+    syncSpouseBenefitFromPrimary();
+    calculate();
+  });
+  el.baseBenefit.addEventListener('input', () => {
+    syncSpouseBenefitFromPrimary();
+  });
+
+  el.spouseBaseBenefit.addEventListener('input', () => {
+    spouseBenefitLinked = false; // user has overridden the auto-linked 50% value
+  });
+
+  includeSpouseSSAEl.addEventListener('change', () => {
+    if (includeSpouseSSAEl.checked) syncSpouseBenefitFromPrimary();
+    calculate();
+  });
+
+  excludeSSAEl.addEventListener('change', () => calculate());
+
+  function fmtINR(v) {
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    const sign = v < 0 ? '-' : '';
+    v = Math.abs(v);
+    if (v >= 1e7) return sign + '₹' + (v/1e7).toFixed(2) + ' Cr';
+    if (v >= 1e5) return sign + '₹' + (v/1e5).toFixed(2) + ' L';
+    return sign + '₹' + v.toLocaleString('en-IN', {maximumFractionDigits:0});
+  }
+  function fmtUSD(v) {
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    return '$' + v.toLocaleString('en-US', {maximumFractionDigits:0});
+  }
+  function fmtNum(v, d) {
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    return v.toLocaleString('en-IN', {maximumFractionDigits: d===undefined?2:d, minimumFractionDigits: d===undefined?2:d});
+  }
+
+  function simulate() {
+    const RETIREMENT_START_YEAR = 2027; // t=0 corresponds to this calendar year
+    const totalPrincipal = parseFloat(el.totalPrincipal.value) || 0;
+    const aPct = parseFloat(el.bucketAPct.value) || 0;
+    const bPct = parseFloat(el.bucketBPct.value) || 0;
+    const cPct = parseFloat(el.bucketCPct.value) || 0;
+    const rA = (parseFloat(el.bucketAReturn.value) || 0) / 100;
+    const rB = (parseFloat(el.bucketBReturn.value) || 0) / 100;
+    const rC = (parseFloat(el.bucketCReturn.value) || 0) / 100;
+    const currentAge = parseFloat(el.currentAge.value) || 0;
+    const initialAnnualWithdrawal = (parseFloat(el.monthlyWithdrawal.value) || 0) * 12;
+    const inflation = (parseFloat(el.inflationRate.value) || 0) / 100;
+    const horizon = Math.max(1, Math.min(60, parseInt(el.horizon.value) || 40));
+    const swrRate = (parseFloat(el.swrRate.value) || 4) / 100;
+
+    const usdPrincipal = parseFloat(el.usdPrincipal.value) || 0;
+    const rUSD = (parseFloat(el.usdReturn.value) || 0) / 100;
+    const spotRate = parseFloat(el.spotRate.value) || 0;
+    const depreciation = (parseFloat(el.depreciation.value) || 0) / 100;
+
+    const claimAge = parseInt(el.claimAge.value) || 67;
+    const baseBenefit = parseFloat(el.baseBenefit.value) || 0;
+    const cola = (parseFloat(el.colaRate.value) || 0) / 100;
+    const claimYear = claimAge - currentAge;
+
+    const includeSSA = !excludeSSAEl.checked;
+    const includeSpouseSSA = includeSSA && !!includeSpouseSSAEl.checked;
+    const spouseCurrentAge = parseFloat(el.spouseCurrentAge.value) || 0;
+    const spouseClaimAge = parseInt(el.spouseClaimAge.value) || 67;
+    const spouseBaseBenefit = parseFloat(el.spouseBaseBenefit.value) || 0;
+    const spouseClaimYear = spouseClaimAge - spouseCurrentAge;
+
+    const stcgRate = (parseFloat(el.stcgRate.value) || 0) / 100;
+    const ltcgRate = (parseFloat(el.ltcgRate.value) || 0) / 100;
+    const numFolios = Math.max(1, parseInt(el.numFolios.value) || 1);
+    const ltcgExemptionPerFolio = parseFloat(el.ltcgExemptionPerFolio.value) || 0;
+    const totalAnnualExemption = numFolios * ltcgExemptionPerFolio;
+
+    const bucketA0 = totalPrincipal * aPct / 100;
+    const bucketB0 = totalPrincipal * bPct / 100;
+    const bucketC0 = totalPrincipal * cPct / 100;
+    const targetA = bucketA0;
+    const targetC = bucketC0;
+
+    let A = bucketA0, B = bucketB0, C = bucketC0, usd401k = usdPrincipal;
+    let costBasis = bucketA0 + bucketB0 + bucketC0;
+    let cumulativeTax = 0;
+    const rows = [];
+
+    // Withdrawals begin immediately in year 0 (RETIREMENT_START_YEAR / currentAge)
+    for (let t = 0; t < horizon; t++) {
+      const withdrawal = initialAnnualWithdrawal * Math.pow(1 + inflation, t);
+
+      // SSA (primary + spouse) is received first each year and directly offsets the portfolio
+      // withdrawal need — it is not merely a post-depletion backstop.
+      const fx = spotRate * Math.pow(1 + depreciation, t);
+      const ssaMonthly = (includeSSA && t >= claimYear && claimYear >= 0) ? baseBenefit * Math.pow(1 + cola, t) : 0;
+      const spouseSsaMonthly = (includeSpouseSSA && t >= spouseClaimYear && spouseClaimYear >= 0) ? spouseBaseBenefit * Math.pow(1 + cola, t) : 0;
+      const ssaAnnualINR = (ssaMonthly + spouseSsaMonthly) * 12 * fx;
+      const netWithdrawalNeeded = Math.max(0, withdrawal - ssaAnnualINR);
+      const ssaSurplus = Math.max(0, ssaAnnualINR - withdrawal); // excess SSA beyond the year's need is reinvested
+
+      const preWithdrawalValue = A + B + C;
+      let shortfall = 0;
+      let remaining = netWithdrawalNeeded;
+
+      // Withdrawal waterfall: Bucket A (arbitrage) -> Bucket C (liquid buffer) -> Bucket B (growth engine)
+      const drawFrom = (bucket) => {
+        const draw = Math.min(bucket, remaining);
+        remaining -= draw;
+        return bucket - draw;
+      };
+      A = drawFrom(A);
+      C = drawFrom(C);
+      B = drawFrom(B);
+      if (remaining > 0) { shortfall = remaining; }
+
+      // --- Capital gains tax on the domestic portion actually withdrawn this year ---
+      const domesticDraw = netWithdrawalNeeded - shortfall;
+      const gainFraction = preWithdrawalValue > 0 ? Math.max(0, (preWithdrawalValue - costBasis) / preWithdrawalValue) : 0;
+      const embeddedGain = domesticDraw * gainFraction;
+      const principalDraw = domesticDraw - embeddedGain;
+      costBasis = Math.max(0, costBasis - principalDraw);
+
+      let taxableGain, tax;
+      if (t === 0) {
+        // First 12 months: Short-Term Capital Gains, no exemption
+        taxableGain = embeddedGain;
+        tax = taxableGain * stcgRate;
+      } else {
+        // Month 13 onward: Long-Term Capital Gains, sheltered by combined per-folio exemption
+        taxableGain = Math.max(0, embeddedGain - totalAnnualExemption);
+        tax = taxableGain * ltcgRate;
+      }
+      cumulativeTax += tax;
+
+      // Any SSA income beyond what's needed for this year's withdrawal is reinvested into
+      // Bucket B (the growth engine), so extra SSA (e.g. a spouse's benefit) keeps compounding value.
+      if (ssaSurplus > 0) {
+        B += ssaSurplus;
+        costBasis += ssaSurplus; // fresh principal, not a capital gain
+      }
+
+
+      // Compound for the year
+      A *= (1 + rA);
+      B *= (1 + rB);
+      C *= (1 + rC);
+
+      // Rebalance: restore Bucket A, then Bucket C, toward targets from Bucket B
+      if (A < targetA && B > 0) {
+        const transfer = Math.min(targetA - A, B);
+        A += transfer;
+        B -= transfer;
+      }
+      if (C < targetC && B > 0) {
+        const transfer = Math.min(targetC - C, B);
+        C += transfer;
+        B -= transfer;
+      }
+
+      if (A + B + C < 1) { A = 0; B = 0; C = 0; }
+
+      // Compound offshore 401k
+      usd401k *= (1 + rUSD);
+
+      // Any remaining shortfall (after SSA + domestic buckets) is funded from the offshore 401(k)
+      const domesticTotal = A + B + C;
+      if (shortfall > 0) {
+        const usdNeeded = shortfall / fx;
+        usd401k = Math.max(0, usd401k - usdNeeded);
+      }
+
+      const offshoreINR = usd401k * fx;
+      const combined = domesticTotal + offshoreINR;
+
+      rows.push({
+        year: t, calYear: RETIREMENT_START_YEAR + t, age: currentAge + t, withdrawal,
+        A, B, C, domesticTotal,
+        usd401k, fx, offshoreINR,
+        ssaMonthly, spouseSsaMonthly,
+        combined,
+        embeddedGain, tax, cumulativeTax
+      });
+    }
+
+    const currentNetWorth0 = (bucketA0 + bucketB0 + bucketC0) + usdPrincipal * spotRate;
+    const fireNumber = swrRate > 0 ? initialAnnualWithdrawal / swrRate : 0;
+    const fireScore = fireNumber > 0 ? (currentNetWorth0 / fireNumber) * 100 : 0;
+
+    return { rows, bucketA0, bucketB0, bucketC0, aPct, bPct, cPct, usdPrincipal, spotRate, totalAnnualExemption, numFolios,
+      swrRate, fireNumber, fireScore, currentNetWorth0 };
+  }
+
+  const cardAnimFrames = {};
+  function animateNumber(fromVal, toVal, duration, onUpdate, key) {
+    if (cardAnimFrames[key]) cancelAnimationFrame(cardAnimFrames[key]);
+    const start = performance.now();
+    function tick(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      onUpdate(fromVal + (toVal - fromVal) * eased);
+      if (p < 1) {
+        cardAnimFrames[key] = requestAnimationFrame(tick);
+      } else {
+        delete cardAnimFrames[key];
+      }
+    }
+    cardAnimFrames[key] = requestAnimationFrame(tick);
+  }
+
+  function upsertCard(container, key, label, value, colorClass, formatter) {
+    formatter = formatter || fmtINR;
+    let card = container.querySelector(`[data-key="${key}"]`);
+    let isNew = false;
+    if (!card) {
+      isNew = true;
+      card = document.createElement('div');
+      card.className = 'card ' + (colorClass || '');
+      card.dataset.key = key;
+      card.dataset.value = '0';
+      card.innerHTML = `<div class="label"></div><div class="value">-</div>`;
+      container.appendChild(card);
+    }
+    card.querySelector('.label').textContent = label;
+    const valueEl = card.querySelector('.value');
+    const from = parseFloat(card.dataset.value) || 0;
+    if (isNew) {
+      valueEl.textContent = formatter(value);
+    } else if (Math.abs(from - value) > 0.01) {
+      animateNumber(from, value, 500, (v) => { valueEl.textContent = formatter(v); }, key);
+      card.classList.remove('updated');
+      void card.offsetWidth; // restart animation
+      card.classList.add('updated');
+    }
+    card.dataset.value = String(value);
+  }
+
+  function fmtPct(v) {
+    if (v === null || v === undefined || isNaN(v)) return '-';
+    return v.toFixed(1) + '%';
+  }
+
+  function renderCards(sim) {
+    const container = document.getElementById('summaryCards');
+    const offshoreINR0 = sim.usdPrincipal * sim.spotRate;
+    const domestic0 = sim.bucketA0 + sim.bucketB0 + sim.bucketC0;
+    const last = sim.rows[sim.rows.length - 1];
+
+    upsertCard(container, 'bucketA', 'Bucket A Initial (Arbitrage)', sim.bucketA0, '');
+    upsertCard(container, 'bucketB', 'Bucket B Initial (Hybrid Growth)', sim.bucketB0, 'b');
+    upsertCard(container, 'bucketC', 'Bucket C Initial (Liquid / Emergency Buffer)', sim.bucketC0, 'c');
+    upsertCard(container, 'domesticTotal', 'Domestic Total (Year 0)', domestic0, 'c');
+    upsertCard(container, 'offshoreINR', 'Offshore 401(k) — INR Equivalent', offshoreINR0, 'd');
+    upsertCard(container, 'globalYear0', 'Global Net Worth (Year 0)', domestic0 + offshoreINR0, '');
+    upsertCard(container, 'combinedTerminal', `Combined Global (Terminal Year ${last.year})`, last.combined, 'd');
+    upsertCard(container, 'cumulativeTax', `Est. Cumulative Domestic CGT (${sim.numFolios} folios)`, last.cumulativeTax, 'c');
+    upsertCard(container, 'fireNumber', `FIRE Number (${(sim.swrRate * 100).toFixed(1)}% SWR)`, sim.fireNumber, 'b');
+    upsertCard(container, 'fireScore', 'FIRE Score', Math.min(999, sim.fireScore), sim.fireScore >= 100 ? 'b' : 'c', fmtPct);
+
+    const fireEl = document.getElementById('fireStatus');
+    if (fireEl) {
+      if (sim.fireScore >= 100) {
+        fireEl.textContent = `🔥 FIRE achieved! Your Year-0 net worth already covers ${sim.fireScore.toFixed(0)}% of your FIRE number (annual withdrawal ÷ ${(sim.swrRate*100).toFixed(1)}% SWR).`;
+        fireEl.style.color = '#059669';
+      } else {
+        fireEl.textContent = `You're at ${sim.fireScore.toFixed(1)}% of your FIRE number — need ${fmtINR(sim.fireNumber - sim.currentNetWorth0)} more (at a ${(sim.swrRate*100).toFixed(1)}% safe withdrawal rate) to be fully financially independent.`;
+        fireEl.style.color = '#b45309';
+      }
+    }
+
+    const totalPct = sim.aPct + sim.bPct + sim.cPct;
+    const allocEl = document.getElementById('allocationCheck');
+    if (Math.abs(totalPct - 100) > 0.01) {
+      allocEl.textContent = `⚠ Bucket A + B + C = ${totalPct.toFixed(1)}% (should total 100% of the domestic corpus). Adjust percentages so they sum to 100%.`;
+      allocEl.style.color = '#b91c1c';
+      allocEl.classList.add('warn');
+    } else {
+      allocEl.textContent = `✓ Bucket A + B + C = 100% of the domestic corpus.`;
+      allocEl.style.color = '#059669';
+      allocEl.classList.remove('warn');
+    }
+  }
+
+  function renderTable(sim) {
+    const tbody = document.querySelector('#resultsTable tbody');
+    const showAll = showAllYearsEl.checked;
+    tbody.innerHTML = '';
+    sim.rows.forEach(r => {
+      if (!showAll && r.year % 5 !== 0) return;
+      const tr = document.createElement('tr');
+      const depletedClass = r.domesticTotal <= 0 ? 'depleted' : '';
+      tr.innerHTML = `
+        <td>${r.year}</td>
+        <td>${r.calYear}</td>
+        <td>${r.age}</td>
+        <td>${fmtINR(r.withdrawal)}</td>
+        <td class="${depletedClass}">${fmtINR(r.A)}</td>
+        <td class="${depletedClass}">${fmtINR(r.B)}</td>
+        <td class="${depletedClass}">${fmtINR(r.C)}</td>
+        <td class="${depletedClass}">${fmtINR(r.domesticTotal)}</td>
+        <td>${fmtINR(r.embeddedGain)}</td>
+        <td>${r.year === 0 ? 'STCG' : 'LTCG'}</td>
+        <td>${fmtINR(r.tax)}</td>
+        <td>${fmtUSD(r.usd401k)}</td>
+        <td>${fmtNum(r.fx, 2)}</td>
+        <td>${fmtINR(r.offshoreINR)}</td>
+        <td>${r.ssaMonthly > 0 ? fmtUSD(r.ssaMonthly) : '-'}</td>
+        <td>${r.spouseSsaMonthly > 0 ? fmtUSD(r.spouseSsaMonthly) : '-'}</td>
+        <td><strong>${fmtINR(r.combined)}</strong></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('footnote').textContent =
+      'SSA income (primary + spouse, once claimed) directly offsets the annual withdrawal need each year, reducing the draw on domestic buckets; ' +
+      'any SSA received beyond that year\'s need is reinvested into Bucket B so it keeps compounding, and any remaining shortfall after domestic buckets are exhausted is funded from the offshore 401(k). ' +
+      'Tax estimate: Year 1 withdrawals are taxed as STCG (no exemption) on the embedded gain portion (tracked via a running cost-basis); ' +
+      'Year 2 onward are taxed as LTCG after netting the combined per-folio annual exemption. This is a simplified approximation, not FIFO lot-level tax advice. ' +
+      'Values are illustrative simulations based on the assumed constant return/inflation/FX rates above — actual markets will vary year to year.';
+  }
+
+  let chartAnimFrame = null;
+  let chartLayout = null;   // holds latest layout/draw fn for hover handling
+  let chartHoverIndex = null;
+  let lastSim = null;
+  let lastBudgetSim = null;
+  let chartRange = null; // null = all years; otherwise {start, end}
+
+  function renderRangeButtons(sim) {
+    const container = document.getElementById('chartRangeButtons');
+    const horizon = sim.rows[sim.rows.length - 1].year;
+    const buckets = [{ label: 'All Years', start: 0, end: horizon }];
+    for (let s = 0; s < horizon; s += 10) {
+      const e = Math.min(s + 10, horizon);
+      buckets.push({ label: `${s}-${e}`, start: s, end: e });
+    }
+    // Only rebuild buttons if the set of buckets changed (avoids losing active state on every keystroke)
+    const signature = buckets.map(b => `${b.start}-${b.end}`).join(',');
+    if (container.dataset.signature === signature) {
+      // just refresh active state
+      Array.from(container.children).forEach(btn => {
+        const isAll = btn.dataset.start === '0' && btn.dataset.end === String(horizon) && !chartRange;
+        const isMatch = chartRange && parseInt(btn.dataset.start) === chartRange.start && parseInt(btn.dataset.end) === chartRange.end;
+        btn.classList.toggle('active', chartRange ? !!isMatch : btn.dataset.isAll === 'true');
+      });
+      return;
+    }
+    container.dataset.signature = signature;
+    container.innerHTML = '';
+    buckets.forEach((b, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'range-btn' + (i === 0 && !chartRange ? ' active' : '');
+      btn.textContent = b.label;
+      btn.dataset.start = b.start;
+      btn.dataset.end = b.end;
+      btn.dataset.isAll = i === 0 ? 'true' : 'false';
+      btn.addEventListener('click', () => {
+        chartRange = (i === 0) ? null : { start: b.start, end: b.end };
+        Array.from(container.children).forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        if (lastSim) renderChart(lastSim);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function renderChart(sim) {
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    renderRangeButtons(sim);
+    if (!ctx) return; // canvas 2D context unavailable in this environment
+    const w = canvas.width, h = canvas.height;
+
+    const rows = chartRange ? sim.rows.filter(r => r.year >= chartRange.start && r.year <= chartRange.end) : sim.rows;
+    const labelStep = (rows[rows.length - 1].year - rows[0].year) <= 10 ? 1 : 5;
+    const maxVal = Math.max(...rows.map(r => Math.max(r.domesticTotal, r.offshoreINR, r.combined)), 1);
+    const padL = 70, padB = 30, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+
+    function x(i) { return rows.length > 1 ? padL + (i / (rows.length - 1)) * plotW : padL; }
+    function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      // Axes
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+
+      // Y labels (5 ticks)
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = maxVal * i / 4;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+        ctx.strokeStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+      }
+
+      // X labels (step depends on zoomed range)
+      ctx.textAlign = 'center';
+      rows.forEach((r, i) => {
+        if (r.year % labelStep === 0) {
+          ctx.fillText('Y' + r.year, x(i), padT + plotH + 16);
+        }
+      });
+    }
+
+    function drawLine(getVal, color, dashed, upToIndex) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
+      ctx.beginPath();
+      for (let i = 0; i <= upToIndex; i++) {
+        const px = x(i), py = y(getVal(rows[i]));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawHoverOverlay(idx) {
+      if (idx === null || idx === undefined) return;
+      idx = Math.max(0, Math.min(rows.length - 1, idx));
+      const r = rows[idx];
+      const px = x(idx);
+
+      // Vertical guide line
+      ctx.save();
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, padT);
+      ctx.lineTo(px, padT + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Point markers
+      const series = [
+        { label: 'Domestic', val: r.domesticTotal, color: '#2563eb' },
+        { label: 'Offshore', val: r.offshoreINR, color: '#059669' },
+        { label: 'Combined', val: r.combined, color: '#7c3aed' }
+      ];
+      series.forEach(s => {
+        const py = y(s.val);
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = s.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+
+      // Tooltip box
+      const lines = [
+        `Year ${r.year}  (Age ${r.age})`,
+        `Domestic: ${fmtINR(r.domesticTotal)}`,
+        `Offshore: ${fmtINR(r.offshoreINR)}`,
+        `Combined: ${fmtINR(r.combined)}`
+      ];
+      ctx.font = '11px Segoe UI';
+      const boxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20;
+      const boxH = lines.length * 15 + 12;
+      let boxX = px + 10;
+      if (boxX + boxW > w - padR) boxX = px - boxW - 10;
+      let boxY = padT + 6;
+
+      ctx.fillStyle = 'rgba(17, 24, 39, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 6) : ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.fill();
+
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      lines.forEach((l, i) => {
+        ctx.fillStyle = i === 0 ? '#fbbf24' : (i === 1 ? '#93c5fd' : (i === 2 ? '#6ee7b7' : '#c4b5fd'));
+        ctx.fillText(l, boxX + 10, boxY + 16 + i * 15);
+      });
+      ctx.restore();
+    }
+
+    function draw(upToIndex) {
+      drawStatic();
+      drawLine(r => r.domesticTotal, '#2563eb', false, upToIndex);
+      drawLine(r => r.offshoreINR, '#059669', false, upToIndex);
+      drawLine(r => r.combined, '#7c3aed', true, upToIndex);
+      if (chartHoverIndex !== null && chartHoverIndex <= upToIndex) {
+        drawHoverOverlay(chartHoverIndex);
+      }
+    }
+
+    if (chartAnimFrame) cancelAnimationFrame(chartAnimFrame);
+    const lastIndex = rows.length - 1;
+    const duration = 700;
+    const start = performance.now();
+
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2); // easeOutQuad
+      const upToIndex = Math.max(0, Math.round(eased * lastIndex));
+      draw(upToIndex);
+      if (p < 1) {
+        chartAnimFrame = requestAnimationFrame(frame);
+      } else {
+        chartAnimFrame = null;
+      }
+    }
+    chartAnimFrame = requestAnimationFrame(frame);
+
+    chartLayout = { rows, x, y, padL, padT, plotW, plotH, lastIndex, draw };
+  }
+
+  // ---- Chart hover tooltip ----
+  (function setupChartHover() {
+    const canvas = document.getElementById('chart');
+    if (!canvas || !canvas.addEventListener) return;
+
+    function handleMove(e) {
+      if (!chartLayout) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const scaleX = canvas.width / rect.width;
+      const mx = (e.clientX - rect.left) * scaleX;
+
+      const { padL, plotW, lastIndex } = chartLayout;
+      if (mx < padL || mx > padL + plotW) {
+        if (chartHoverIndex !== null) {
+          chartHoverIndex = null;
+          chartLayout.draw(chartLayout.lastIndex);
+        }
+        return;
+      }
+      const ratio = (mx - padL) / plotW;
+      const idx = Math.max(0, Math.min(lastIndex, Math.round(ratio * lastIndex)));
+      if (idx !== chartHoverIndex) {
+        chartHoverIndex = idx;
+        chartLayout.draw(chartLayout.lastIndex);
+      }
+    }
+
+    function handleLeave() {
+      if (chartHoverIndex !== null && chartLayout) {
+        chartHoverIndex = null;
+        chartLayout.draw(chartLayout.lastIndex);
+      }
+    }
+
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseleave', handleLeave);
+    canvas.style.cursor = 'crosshair';
+  })();
+
+  let drawdownAnimFrame = null;
+  let drawdownHoverIndex = null;
+  let drawdownLayout = null;
+
+  function renderDrawdownChart(sim) {
+    const canvas = document.getElementById('drawdownChart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    const legendEl = document.getElementById('drawdownLegend');
+    const layers = [
+      { key: 'A', label: 'Bucket A (Arbitrage)', color: '#2563eb' },
+      { key: 'B', label: 'Bucket B (Hybrid Growth)', color: '#059669' },
+      { key: 'C', label: 'Bucket C (Liquid Buffer)', color: '#d97706' },
+      { key: 'usd401kINR', label: 'Offshore 401(k)', color: '#7c3aed' }
+    ];
+    if (legendEl) {
+      legendEl.innerHTML = layers.map(l => `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;"><span style="width:10px;height:10px;background:${l.color};display:inline-block;border-radius:2px;"></span>${l.label}</span>`).join('');
+    }
+    if (!ctx) return; // canvas 2D context unavailable in this environment
+
+    const w = canvas.width, h = canvas.height;
+    const rows = sim.rows;
+    // Precompute per-row layer values (offshore INR value per row uses fx-adjusted usd401k)
+    const rowsData = rows.map(r => ({
+      year: r.year,
+      A: Math.max(0, r.A || 0),
+      B: Math.max(0, r.B || 0),
+      C: Math.max(0, r.C || 0),
+      offshore: Math.max(0, r.offshoreINR || 0)
+    }));
+    const maxVal = Math.max(...rowsData.map(r => r.A + r.B + r.C + r.offshore), 1);
+    const padL = 70, padB = 30, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    const labelStep = rowsData.length <= 12 ? 1 : 5;
+
+    function x(i) { return rowsData.length > 1 ? padL + (i / (rowsData.length - 1)) * plotW : padL; }
+    function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = maxVal * i / 4;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+        ctx.strokeStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+      }
+
+      ctx.textAlign = 'center';
+      rowsData.forEach((r, i) => {
+        if (r.year % labelStep === 0) {
+          ctx.fillText('Y' + r.year, x(i), padT + plotH + 16);
+        }
+      });
+    }
+
+    function drawBand(getBottom, getTop, color, upToIndex) {
+      ctx.beginPath();
+      for (let i = 0; i <= upToIndex; i++) {
+        const px = x(i), py = y(getTop(rowsData[i]));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      for (let i = upToIndex; i >= 0; i--) {
+        const px = x(i), py = y(getBottom(rowsData[i]));
+        ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function draw(upToIndex) {
+      drawStatic();
+      drawBand(() => 0, r => r.A, 'rgba(37, 99, 235, 0.75)', upToIndex);
+      drawBand(r => r.A, r => r.A + r.B, 'rgba(5, 150, 105, 0.75)', upToIndex);
+      drawBand(r => r.A + r.B, r => r.A + r.B + r.C, 'rgba(217, 119, 6, 0.75)', upToIndex);
+      drawBand(r => r.A + r.B + r.C, r => r.A + r.B + r.C + r.offshore, 'rgba(124, 58, 237, 0.75)', upToIndex);
+
+      if (drawdownHoverIndex !== null && drawdownHoverIndex <= upToIndex) {
+        const idx = Math.max(0, Math.min(rowsData.length - 1, drawdownHoverIndex));
+        const r = rowsData[idx];
+        const px = x(idx);
+        ctx.save();
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const lines = [
+          `Year ${r.year}`,
+          `Bucket A: ${fmtINR(r.A)}`,
+          `Bucket B: ${fmtINR(r.B)}`,
+          `Bucket C: ${fmtINR(r.C)}`,
+          `Offshore: ${fmtINR(r.offshore)}`,
+          `Total: ${fmtINR(r.A + r.B + r.C + r.offshore)}`
+        ];
+        ctx.font = '11px Segoe UI';
+        const boxW = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20;
+        const boxH = lines.length * 15 + 12;
+        let boxX = px + 10;
+        if (boxX + boxW > w - padR) boxX = px - boxW - 10;
+        let boxY = padT + 6;
+        ctx.fillStyle = 'rgba(17, 24, 39, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 6) : ctx.rect(boxX, boxY, boxW, boxH);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        const colors = ['#fbbf24', '#93c5fd', '#6ee7b7', '#fcd34d', '#c4b5fd', '#fff'];
+        lines.forEach((l, i) => {
+          ctx.fillStyle = colors[i];
+          ctx.fillText(l, boxX + 10, boxY + 16 + i * 15);
+        });
+        ctx.restore();
+      }
+    }
+
+    if (drawdownAnimFrame) cancelAnimationFrame(drawdownAnimFrame);
+    const lastIndex = rowsData.length - 1;
+    const duration = 700;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      const upToIndex = Math.max(0, Math.round(eased * lastIndex));
+      draw(upToIndex);
+      if (p < 1) {
+        drawdownAnimFrame = requestAnimationFrame(frame);
+      } else {
+        drawdownAnimFrame = null;
+      }
+    }
+    drawdownAnimFrame = requestAnimationFrame(frame);
+
+    drawdownLayout = { rowsData, x, padL, plotW, lastIndex, draw };
+  }
+
+  (function setupDrawdownHover() {
+    const canvas = document.getElementById('drawdownChart');
+    if (!canvas || !canvas.addEventListener) return;
+
+    function handleMove(e) {
+      if (!drawdownLayout) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const scaleX = canvas.width / rect.width;
+      const mx = (e.clientX - rect.left) * scaleX;
+      const { padL, plotW, lastIndex } = drawdownLayout;
+      if (mx < padL || mx > padL + plotW) {
+        if (drawdownHoverIndex !== null) {
+          drawdownHoverIndex = null;
+          drawdownLayout.draw(drawdownLayout.lastIndex);
+        }
+        return;
+      }
+      const ratio = (mx - padL) / plotW;
+      const idx = Math.max(0, Math.min(lastIndex, Math.round(ratio * lastIndex)));
+      if (idx !== drawdownHoverIndex) {
+        drawdownHoverIndex = idx;
+        drawdownLayout.draw(drawdownLayout.lastIndex);
+      }
+    }
+
+    function handleLeave() {
+      if (drawdownHoverIndex !== null && drawdownLayout) {
+        drawdownHoverIndex = null;
+        drawdownLayout.draw(drawdownLayout.lastIndex);
+      }
+    }
+
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseleave', handleLeave);
+    canvas.style.cursor = 'crosshair';
+  })();
+
+  function calculate() {
+    const sim = simulate();
+    lastSim = sim;
+    renderCards(sim);
+    renderTable(sim);
+    renderChart(sim);
+    renderDrawdownChart(sim);
+    if (typeof calculateBudget === 'function') calculateBudget();
+  }
+
+  // ---- Save / Load Scenarios (localStorage) ----
+  const STORAGE_KEY = 'retirementSimScenarios';
+  const nameInput = document.getElementById('scenarioName');
+  const selectEl = document.getElementById('scenarioSelect');
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  const statusEl = document.getElementById('scenarioStatus');
+
+  function loadStore() {
+    try {
+      return JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveStore(store) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  }
+  function refreshScenarioList(selectName) {
+    const store = loadStore();
+    const names = Object.keys(store).sort();
+    selectEl.innerHTML = '<option value="">— none saved —</option>' +
+      names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (selectName && names.includes(selectName)) selectEl.value = selectName;
+  }
+  function showStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? '#b91c1c' : '#059669';
+  }
+  function collectInputs() {
+    const data = {};
+    ids.forEach(id => { data[id] = el[id].value; });
+    data.includeSpouseSSA = includeSpouseSSAEl.checked;
+    data.excludeSSA = excludeSSAEl.checked;
+    return data;
+  }
+  function applyInputs(data) {
+    ids.forEach(id => {
+      if (data[id] !== undefined) el[id].value = data[id];
+    });
+    if (data.includeSpouseSSA !== undefined) includeSpouseSSAEl.checked = !!data.includeSpouseSSA;
+    if (data.excludeSSA !== undefined) excludeSSAEl.checked = !!data.excludeSSA;
+    calculate();
+  }
+
+  saveBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      showStatus('Enter a scenario name before saving.', true);
+      return;
+    }
+    const store = loadStore();
+    store[name] = collectInputs();
+    saveStore(store);
+    refreshScenarioList(name);
+    showStatus(`Saved scenario "${name}".`, false);
+  });
+
+  loadBtn.addEventListener('click', () => {
+    const name = selectEl.value;
+    if (!name) {
+      showStatus('Select a saved scenario to load.', true);
+      return;
+    }
+    const store = loadStore();
+    if (!store[name]) {
+      showStatus(`Scenario "${name}" not found.`, true);
+      return;
+    }
+    applyInputs(store[name]);
+    nameInput.value = name;
+    showStatus(`Loaded scenario "${name}".`, false);
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    const name = selectEl.value;
+    if (!name) {
+      showStatus('Select a saved scenario to delete.', true);
+      return;
+    }
+    const store = loadStore();
+    delete store[name];
+    saveStore(store);
+    refreshScenarioList();
+    showStatus(`Deleted scenario "${name}".`, false);
+  });
+
+  refreshScenarioList();
+
+  // ---- File Storage: Export / Import as JSON files ----
+  const exportCurrentBtn = document.getElementById('exportCurrentBtn');
+  const exportAllBtn = document.getElementById('exportAllBtn');
+  const importBtn = document.getElementById('importBtn');
+  const importFileInput = document.getElementById('importFileInput');
+
+  function downloadJSON(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+  }
+
+  exportCurrentBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim() || 'scenario';
+    const payload = { type: 'retirement-sim-scenario', name, inputs: collectInputs() };
+    downloadJSON(payload, `${name.replace(/[^a-z0-9_-]+/gi, '_')}.json`);
+    showStatus(`Exported current inputs to file "${name}.json".`, false);
+  });
+
+  exportAllBtn.addEventListener('click', () => {
+    const store = loadStore();
+    if (Object.keys(store).length === 0) {
+      showStatus('No saved scenarios to export. Save one first, or use "Export Current Inputs".', true);
+      return;
+    }
+    const payload = { type: 'retirement-sim-scenario-library', scenarios: store };
+    downloadJSON(payload, 'retirement-sim-scenarios.json');
+    showStatus(`Exported ${Object.keys(store).length} saved scenario(s) to file.`, false);
+  });
+
+  importBtn.addEventListener('click', () => importFileInput.click());
+
+  importFileInput.addEventListener('change', () => {
+    const file = importFileInput.files && importFileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const store = loadStore();
+
+        if (parsed.type === 'retirement-sim-scenario-library' && parsed.scenarios) {
+          Object.keys(parsed.scenarios).forEach(n => { store[n] = parsed.scenarios[n]; });
+          saveStore(store);
+          refreshScenarioList();
+          showStatus(`Imported ${Object.keys(parsed.scenarios).length} scenario(s) from file into Saved Scenarios.`, false);
+        } else if (parsed.type === 'retirement-sim-scenario' && parsed.inputs) {
+          const importName = parsed.name || file.name.replace(/\.json$/i, '');
+          store[importName] = parsed.inputs;
+          saveStore(store);
+          refreshScenarioList(importName);
+          applyInputs(parsed.inputs);
+          nameInput.value = importName;
+          showStatus(`Imported and applied scenario "${importName}" from file.`, false);
+        } else if (typeof parsed === 'object') {
+          // Fallback: treat as a raw inputs object
+          applyInputs(parsed);
+          showStatus(`Imported and applied inputs from file "${file.name}".`, false);
+        } else {
+          showStatus('File does not contain a recognized scenario format.', true);
+        }
+      } catch (e) {
+        showStatus(`Could not parse "${file.name}" — not valid JSON.`, true);
+      }
+      importFileInput.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  ids.forEach(id => {
+    el[id].addEventListener('input', calculate);
+    el[id].addEventListener('change', calculate);
+  });
+  showAllYearsEl.addEventListener('change', calculate);
+
+  // ---- Tab switching ----
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  const tabIndicator = document.getElementById('tabIndicator');
+  function positionTabIndicator(btn) {
+    if (!tabIndicator || !btn) return;
+    const row = btn.closest('.tabs');
+    const rowRect = row.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    tabIndicator.style.width = btnRect.width + 'px';
+    tabIndicator.style.transform = `translateX(${btnRect.left - rowRect.left}px)`;
+  }
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabPanels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      positionTabIndicator(btn);
+      if (btn.dataset.tab === 'budget') { calculateBudget(); }
+      if (btn.dataset.tab === 'invest') { calculateInvest(); }
+      if (btn.dataset.tab === 'tax') { calculateTax(); }
+      if (btn.dataset.tab === 'global') { calculateGlobalTax(); }
+    });
+  });
+  positionTabIndicator(document.querySelector('.tab-btn.active'));
+  window.addEventListener('resize', () => positionTabIndicator(document.querySelector('.tab-btn.active')));
+
+  // ---- Decorative sparkle swarm: dense cluster tapering into a scattered "flying" trail.
+  // The container itself flies a slow, looping path across the whole viewport (swarmFly),
+  // while each dot twinkles independently — together it reads as a flock roaming the page. ----
+  (function buildSparkleField() {
+    const field = document.getElementById('sparkleField');
+    if (!field) return;
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const count = 160;
+    for (let i = 0; i < count; i++) {
+      // t=0 -> dense cluster near the "head"; t=1 -> sparse scattered "tail"
+      const t = i / count;
+      const head = t < 0.35;
+      const cx = 1000 - t * 840 + rand(-48, 48);
+      const cy = t * 440 + rand(-40, 40);
+      const size = head ? rand(3, 6) : rand(1.3, 3.5);
+      const opacity = head ? rand(0.45, 0.85) : rand(0.15, 0.5);
+      const isGreen = Math.random() < (head ? 0.55 : 0.3);
+      const dot = document.createElement('span');
+      dot.className = 'sparkle-dot';
+      dot.style.left = Math.max(0, cx) + 'px';
+      dot.style.top = Math.max(0, cy) + 'px';
+      dot.style.width = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.setProperty('--o', opacity.toFixed(2));
+      dot.style.setProperty('--c', isGreen ? 'var(--primary)' : '#94a3b8');
+      dot.style.setProperty('--d', rand(2.4, 4.6).toFixed(2) + 's');
+      dot.style.setProperty('--ad', rand(0, 3).toFixed(2) + 's');
+      field.appendChild(dot);
+    }
+  })();
+
+  // ---- Header sparkle: same twinkle mechanic, confined to the black header bar,
+  // using a white/light-green palette (instead of green/gray) so it reads on dark background ----
+  (function buildHeaderSparkleField() {
+    const field = document.getElementById('headerSparkleField');
+    if (!field) return;
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const count = 60;
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      const head = t < 0.35;
+      const cx = rand(0, 100); // percent across header width
+      const cy = rand(8, 92);  // percent across header height
+      const size = head ? rand(2.5, 5) : rand(1.2, 3);
+      const opacity = head ? rand(0.5, 0.9) : rand(0.15, 0.5);
+      const isWhite = Math.random() < (head ? 0.6 : 0.4);
+      const dot = document.createElement('span');
+      dot.className = 'sparkle-dot';
+      dot.style.left = cx + '%';
+      dot.style.top = cy + '%';
+      dot.style.width = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.setProperty('--o', opacity.toFixed(2));
+      dot.style.setProperty('--c', isWhite ? '#fff' : 'var(--primary)');
+      dot.style.setProperty('--d', rand(2, 3.8).toFixed(2) + 's');
+      dot.style.setProperty('--ad', rand(0, 3).toFixed(2) + 's');
+      field.appendChild(dot);
+    }
+  })();
+
+  // ---- Loading curtain: brief brand intro, then reveal the app ----
+  window.addEventListener('load', () => {
+    const curtain = document.getElementById('preCurtain');
+    if (curtain) setTimeout(() => curtain.remove(), 1300);
+  });
+
+  // ---- Scroll-reveal for panels (fires once per element as it enters view) ----
+  document.querySelectorAll('.panel').forEach(p => p.classList.add('reveal'));
+  if ('IntersectionObserver' in window) {
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.panel.reveal').forEach(p => revealObserver.observe(p));
+  } else {
+    document.querySelectorAll('.panel.reveal').forEach(p => p.classList.add('in-view'));
+  }
+
+  // ================= India Budgeting Tab =================
+  const budgetIds = ['bHousing','bGroceries','bUtilities','bTransport','bHealthcare','bHelp','bTravel','bDiscretionary','bMisc','bInflation',
+    'eduRefYear','kid1Age','kid2Age','schoolAnnualCost','collegeStartAge','collegeDuration','collegeAnnualCost','eduInflation'];
+  const bEl = {};
+  budgetIds.forEach(id => bEl[id] = document.getElementById(id));
+
+  const BUDGET_HORIZON = 20; // years to project (covers both kids through college)
+  const BUDGET_START_YEAR = 2027; // t=0 in the budgeting timeline corresponds to this calendar year
+
+  function simulateBudget() {
+    const monthlyTotal = ['bHousing','bGroceries','bUtilities','bTransport','bHealthcare','bHelp','bTravel','bDiscretionary','bMisc']
+      .reduce((sum, id) => sum + (parseFloat(bEl[id].value) || 0), 0);
+    const annualTotal0 = monthlyTotal * 12;
+    const bInflation = (parseFloat(bEl.bInflation.value) || 0) / 100;
+
+    const refYear = parseInt(bEl.eduRefYear.value) || BUDGET_START_YEAR;
+    const currentCalendarYear = BUDGET_START_YEAR;
+    const kid1AgeNow = (parseFloat(bEl.kid1Age.value) || 0) - (refYear - currentCalendarYear);
+    const kid2AgeNow = (parseFloat(bEl.kid2Age.value) || 0) - (refYear - currentCalendarYear);
+    const schoolCost0 = parseFloat(bEl.schoolAnnualCost.value) || 0;
+    const collegeStartAge = parseFloat(bEl.collegeStartAge.value) || 18;
+    const collegeDuration = parseFloat(bEl.collegeDuration.value) || 4;
+    const collegeCost0 = parseFloat(bEl.collegeAnnualCost.value) || 0;
+    const eduInflation = (parseFloat(bEl.eduInflation.value) || 0) / 100;
+
+    function kidCostAtYear(ageNow, t) {
+      const age = ageNow + t;
+      if (age < 0) return { age, cost: 0, stage: '-' };
+      if (age >= collegeStartAge && age < collegeStartAge + collegeDuration) {
+        return { age, cost: collegeCost0 * Math.pow(1 + eduInflation, t), stage: 'College' };
+      }
+      if (age < collegeStartAge) {
+        return { age, cost: schoolCost0 * Math.pow(1 + eduInflation, t), stage: 'School' };
+      }
+      return { age, cost: 0, stage: 'Done' };
+    }
+
+    const rows = [];
+    let totalEducationLifetime = 0;
+    let totalLivingLifetime = 0;
+    let totalSurplus = 0;
+    let totalDeficit = 0;
+    let deficitYears = 0;
+    for (let t = 0; t <= BUDGET_HORIZON; t++) {
+      const householdBudget = annualTotal0 * Math.pow(1 + bInflation, t);
+      const kid1 = kidCostAtYear(kid1AgeNow, t);
+      const kid2 = kidCostAtYear(kid2AgeNow, t);
+      const educationTotal = kid1.cost + kid2.cost;
+      const combined = householdBudget + educationTotal;
+
+      // Pull in the matching year's withdrawal from the Retirement Plan tab (same t = years from now)
+      const retireRow = (lastSim && lastSim.rows && lastSim.rows[t]) ? lastSim.rows[t] : null;
+      const retirementWithdrawal = retireRow ? retireRow.withdrawal : null;
+      const surplus = (retirementWithdrawal !== null) ? (retirementWithdrawal - combined) : null;
+
+      rows.push({
+        t, calYear: currentCalendarYear + t,
+        householdBudget, kid1, kid2, educationTotal, combined,
+        retirementWithdrawal, surplus
+      });
+      totalEducationLifetime += educationTotal;
+      totalLivingLifetime += householdBudget;
+      if (surplus !== null) {
+        if (surplus >= 0) totalSurplus += surplus;
+        else { totalDeficit += -surplus; deficitYears++; }
+      }
+    }
+
+    return { rows, monthlyTotal, annualTotal0, totalEducationLifetime, totalLivingLifetime, kid1AgeNow, kid2AgeNow, totalSurplus, totalDeficit, deficitYears };
+  }
+
+  function upsertBudgetCard(container, key, label, value, colorClass, formatter) {
+    upsertCard(container, key, label, value, colorClass, formatter);
+  }
+
+  function renderBudgetCards(sim) {
+    const container = document.getElementById('budgetCards');
+    upsertBudgetCard(container, 'bMonthly', 'Total Monthly Household Budget', sim.monthlyTotal, '');
+    upsertBudgetCard(container, 'bAnnual', 'Total Annual Household Budget (Today)', sim.annualTotal0, 'b');
+    upsertBudgetCard(container, 'bEduLifetime', `Total Kids' Education Outlay (${BUDGET_HORIZON}-yr, nominal)`, sim.totalEducationLifetime, 'c');
+    upsertBudgetCard(container, 'bCombinedLifetime', `Combined Living + Education (${BUDGET_HORIZON}-yr, nominal)`, sim.totalLivingLifetime + sim.totalEducationLifetime, 'd');
+    if (lastSim) {
+      upsertBudgetCard(container, 'bNetPosition', `Net Position vs. Retirement Plan (${BUDGET_HORIZON}-yr)`, sim.totalSurplus - sim.totalDeficit, sim.totalSurplus - sim.totalDeficit >= 0 ? 'b' : 'c');
+      upsertBudgetCard(container, 'bDeficitYears', 'Years with a Shortfall', sim.deficitYears, sim.deficitYears > 0 ? 'c' : 'b', v => String(Math.round(v)));
+    }
+
+    const note = document.getElementById('eduAllocationNote');
+    if (note) {
+      const k1 = sim.kid1AgeNow, k2 = sim.kid2AgeNow;
+      note.textContent = `Kid 1 is currently ~${k1} years old, Kid 2 is currently ~${k2} years old (derived from the reference year and ages above).`;
+    }
+  }
+
+  function renderBudgetTable(sim) {
+    const tbody = document.querySelector('#budgetTable tbody');
+    tbody.innerHTML = '';
+    sim.rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const surplusClass = r.surplus === null ? '' : (r.surplus >= 0 ? 'surplus-positive' : 'surplus-negative');
+      tr.innerHTML = `
+        <td>${r.t}</td>
+        <td>${r.calYear}</td>
+        <td>${fmtINR(r.householdBudget)}</td>
+        <td>${r.kid1.age >= 0 ? `${r.kid1.age} / ${r.kid1.stage === 'Done' ? '-' : fmtINR(r.kid1.cost)}` : '-'}</td>
+        <td>${r.kid2.age >= 0 ? `${r.kid2.age} / ${r.kid2.stage === 'Done' ? '-' : fmtINR(r.kid2.cost)}` : '-'}</td>
+        <td>${fmtINR(r.educationTotal)}</td>
+        <td><strong>${fmtINR(r.combined)}</strong></td>
+        <td>${r.retirementWithdrawal !== null ? fmtINR(r.retirementWithdrawal) : '-'}</td>
+        <td class="${surplusClass}">${r.surplus !== null ? (r.surplus >= 0 ? '+' : '') + fmtINR(r.surplus) : '-'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('budgetFootnote').textContent =
+      'Household budget grows at the Household Expense Inflation rate; kids\' education costs grow at the (typically higher) Education Cost Inflation rate, ' +
+      'and automatically switch from School to College cost once a child reaches the College Start Age, ending after the College Duration. ' +
+      'Retirement Plan Withdrawal is pulled from the same year (t) on the Retirement Plan tab — Surplus/(Deficit) = that withdrawal minus the combined living + education need. ' +
+      'All figures are nominal (not discounted to present value).';
+  }
+
+  let budgetChartAnimFrame = null;
+
+  function renderBudgetChart(sim) {
+    const canvas = document.getElementById('budgetChart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+    const rows = sim.rows;
+    const maxVal = Math.max(...rows.map(r => Math.max(r.householdBudget, r.educationTotal, r.combined, r.retirementWithdrawal || 0)), 1);
+    const padL = 70, padB = 30, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+
+    function x(i) { return rows.length > 1 ? padL + (i / (rows.length - 1)) * plotW : padL; }
+    function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = maxVal * i / 4;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+        ctx.strokeStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+      }
+      ctx.textAlign = 'center';
+      rows.forEach((r, i) => { ctx.fillText('Y' + r.t, x(i), padT + plotH + 16); });
+    }
+
+    function drawLine(getVal, color, dashed, upToIndex) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i <= upToIndex; i++) {
+        const v = getVal(rows[i]);
+        if (v === null || v === undefined) continue;
+        const px = x(i), py = y(v);
+        if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function draw(upToIndex) {
+      drawStatic();
+      drawLine(r => r.householdBudget, '#2563eb', false, upToIndex);
+      drawLine(r => r.educationTotal, '#d97706', false, upToIndex);
+      drawLine(r => r.combined, '#7c3aed', true, upToIndex);
+      drawLine(r => r.retirementWithdrawal, '#0891b2', true, upToIndex);
+    }
+
+    if (budgetChartAnimFrame) cancelAnimationFrame(budgetChartAnimFrame);
+    const lastIndex = rows.length - 1;
+    const duration = 700;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      const upToIndex = Math.max(0, Math.round(eased * lastIndex));
+      draw(upToIndex);
+      if (p < 1) { budgetChartAnimFrame = requestAnimationFrame(frame); } else { budgetChartAnimFrame = null; }
+    }
+    budgetChartAnimFrame = requestAnimationFrame(frame);
+  }
+
+  let surplusChartAnimFrame = null;
+
+  function renderSurplusChart(sim) {
+    const canvas = document.getElementById('surplusChart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+    const rows = sim.rows.filter(r => r.surplus !== null);
+    if (rows.length === 0) { ctx.clearRect(0, 0, w, h); return; }
+
+    const maxAbs = Math.max(...rows.map(r => Math.abs(r.surplus)), 1);
+    const padL = 70, padB = 30, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    const zeroY = padT + plotH / 2;
+    const barW = Math.max(4, (plotW / rows.length) * 0.6);
+
+    function x(i) { return rows.length > 1 ? padL + (i / (rows.length - 1)) * plotW : padL + plotW / 2; }
+    function y(v) { return zeroY - (v / maxAbs) * (plotH / 2); }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#9ca3af';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(padL + plotW, zeroY); ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      [-1, -0.5, 0, 0.5, 1].forEach(f => {
+        const v = maxAbs * f;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+      });
+      ctx.textAlign = 'center';
+      rows.forEach((r, i) => { ctx.fillText('Y' + r.t, x(i), padT + plotH + 16); });
+    }
+
+    function draw(upToIndex) {
+      drawStatic();
+      for (let i = 0; i <= upToIndex; i++) {
+        const r = rows[i];
+        const px = x(i);
+        const py = y(r.surplus);
+        ctx.fillStyle = r.surplus >= 0 ? 'rgba(5, 150, 105, 0.8)' : 'rgba(185, 28, 28, 0.8)';
+        const top = Math.min(py, zeroY);
+        const height = Math.abs(zeroY - py);
+        ctx.fillRect(px - barW / 2, top, barW, Math.max(1, height));
+      }
+    }
+
+    if (surplusChartAnimFrame) cancelAnimationFrame(surplusChartAnimFrame);
+    const lastIndex = rows.length - 1;
+    const duration = 700;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      const upToIndex = Math.max(0, Math.round(eased * lastIndex));
+      draw(upToIndex);
+      if (p < 1) { surplusChartAnimFrame = requestAnimationFrame(frame); } else { surplusChartAnimFrame = null; }
+    }
+    surplusChartAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function calculateBudget() {
+    const sim = simulateBudget();
+    lastBudgetSim = sim;
+    renderBudgetCards(sim);
+    renderBudgetTable(sim);
+    renderBudgetChart(sim);
+    renderSurplusChart(sim);
+    calculateTax();
+  }
+
+  budgetIds.forEach(id => {
+    bEl[id].addEventListener('input', calculateBudget);
+    bEl[id].addEventListener('change', calculateBudget);
+  });
+
+  // ================= Investment Decision Tab =================
+  const investIds = ['invAmount', 'invHorizon', 'invRisk', 'retEquity', 'retRealEstate', 'retGold', 'retDebt', 'retArbitrage', 'retFD'];
+  const iEl = {};
+  investIds.forEach(id => iEl[id] = document.getElementById(id));
+
+  const INVEST_START_YEAR = 2027; // t=0 corresponds to this calendar year (same anchor as other tabs)
+
+  // Risk-tolerance presets: how the recommended blended portfolio is allocated across asset classes (%).
+  const RISK_PRESETS = {
+    conservative: { fd: 40, arbitrage: 30, debt: 20, gold: 10, equity: 0, realEstate: 0 },
+    moderate:     { equity: 30, debt: 25, gold: 15, realEstate: 15, arbitrage: 15, fd: 0 },
+    aggressive:   { equity: 55, realEstate: 25, gold: 10, debt: 10, arbitrage: 0, fd: 0 }
+  };
+  const ASSET_LABELS = {
+    equity: 'Equity Mutual Funds', realEstate: 'Real Estate', gold: 'Gold / SGB',
+    debt: 'Debt Mutual Funds', arbitrage: 'Arbitrage Funds', fd: 'Fixed Deposit'
+  };
+
+  function simulateInvest() {
+    const amount = parseFloat(iEl.invAmount.value) || 0;
+    const horizon = Math.max(1, Math.min(40, parseInt(iEl.invHorizon.value) || 10));
+    const riskKey = iEl.invRisk.value;
+    const returns = {
+      equity: (parseFloat(iEl.retEquity.value) || 0) / 100,
+      realEstate: (parseFloat(iEl.retRealEstate.value) || 0) / 100,
+      gold: (parseFloat(iEl.retGold.value) || 0) / 100,
+      debt: (parseFloat(iEl.retDebt.value) || 0) / 100,
+      arbitrage: (parseFloat(iEl.retArbitrage.value) || 0) / 100,
+      fd: (parseFloat(iEl.retFD.value) || 0) / 100
+    };
+    const weights = RISK_PRESETS[riskKey] || RISK_PRESETS.moderate;
+
+    // Terminal value if the full lump sum were invested 100% in a single asset class.
+    const singleAssetTerminal = {};
+    Object.keys(returns).forEach(key => {
+      singleAssetTerminal[key] = amount * Math.pow(1 + returns[key], horizon);
+    });
+
+    // Blended portfolio return = weighted average of the asset class returns (simple approximation,
+    // ignoring rebalancing/correlation effects — reasonable for a rough decision-support projection).
+    let blendedReturn = 0;
+    Object.keys(weights).forEach(key => {
+      blendedReturn += (weights[key] / 100) * (returns[key] || 0);
+    });
+
+    const rows = [];
+    let value = amount;
+    for (let t = 0; t <= horizon; t++) {
+      const growth = t === 0 ? 0 : value * blendedReturn;
+      if (t > 0) value += growth;
+      rows.push({ t, calYear: INVEST_START_YEAR + t, value, growth });
+    }
+
+    return { amount, horizon, riskKey, returns, weights, singleAssetTerminal, blendedReturn, rows };
+  }
+
+  function renderInvestCards(sim) {
+    const container = document.getElementById('investCards');
+    const terminal = sim.rows[sim.rows.length - 1].value;
+    const bestSingle = Object.keys(sim.singleAssetTerminal).reduce((best, key) =>
+      sim.singleAssetTerminal[key] > sim.singleAssetTerminal[best] ? key : best, Object.keys(sim.singleAssetTerminal)[0]);
+
+    upsertCard(container, 'iAmount', 'Amount to Invest (Today)', sim.amount, '');
+    upsertCard(container, 'iBlendedReturn', 'Recommended Portfolio — Blended Return', sim.blendedReturn * 100, 'b', v => v.toFixed(2) + '%/yr');
+    upsertCard(container, 'iTerminal', `Recommended Portfolio Value (Year ${sim.horizon})`, terminal, 'd');
+    upsertCard(container, 'iGain', 'Total Growth (Recommended Portfolio)', terminal - sim.amount, 'c');
+    upsertCard(container, 'iBestSingle', `Highest Single-Asset Value (${ASSET_LABELS[bestSingle]})`, sim.singleAssetTerminal[bestSingle], 'b');
+  }
+
+  function renderInvestTable(sim) {
+    const tbody = document.querySelector('#investTable tbody');
+    tbody.innerHTML = '';
+    sim.rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.t}</td>
+        <td>${r.calYear}</td>
+        <td><strong>${fmtINR(r.value)}</strong></td>
+        <td>${r.t === 0 ? '-' : fmtINR(r.growth)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('investFootnote').textContent =
+      `Recommended portfolio uses a ${sim.riskKey} allocation: ` +
+      Object.keys(sim.weights).filter(k => sim.weights[k] > 0).map(k => `${ASSET_LABELS[k]} ${sim.weights[k]}%`).join(', ') +
+      `. Blended expected return ≈ ${(sim.blendedReturn * 100).toFixed(2)}%/yr, compounded annually (no rebalancing/tax drag modeled — a simplified decision-support estimate, not investment advice).`;
+
+    const allocNote = document.getElementById('investAllocationNote');
+    if (allocNote) {
+      allocNote.textContent = `Allocation weights auto-selected for "${sim.riskKey}" risk tolerance: ` +
+        Object.keys(sim.weights).filter(k => sim.weights[k] > 0).map(k => `${ASSET_LABELS[k]} ${sim.weights[k]}%`).join(' · ') + '.';
+    }
+  }
+
+  let investCompareAnimFrame = null;
+  function renderInvestCompareChart(sim) {
+    const canvas = document.getElementById('investCompareChart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+    const keys = Object.keys(sim.singleAssetTerminal);
+    const blendedTerminal = sim.rows[sim.rows.length - 1].value;
+    const bars = keys.map(k => ({ label: ASSET_LABELS[k], value: sim.singleAssetTerminal[k], highlight: false }));
+    bars.push({ label: 'Recommended Blend', value: blendedTerminal, highlight: true });
+
+    const maxVal = Math.max(...bars.map(b => b.value), 1);
+    const padL = 90, padB = 50, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    const barGap = plotW / bars.length;
+    const barW = barGap * 0.6;
+
+    function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = maxVal * i / 4;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+        ctx.strokeStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+      }
+    }
+
+    function draw(progress) {
+      drawStatic();
+      bars.forEach((b, i) => {
+        const cx = padL + barGap * i + barGap / 2;
+        const targetY = y(b.value);
+        const baseY = padT + plotH;
+        const curY = baseY - (baseY - targetY) * progress;
+        ctx.fillStyle = b.highlight ? 'rgba(8, 145, 178, 0.85)' : 'rgba(37, 99, 235, 0.7)';
+        ctx.fillRect(cx - barW / 2, curY, barW, baseY - curY);
+        ctx.fillStyle = '#374151';
+        ctx.font = '10px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.save();
+        ctx.translate(cx, baseY + 14);
+        ctx.fillText(b.label.length > 14 ? b.label.slice(0, 13) + '…' : b.label, 0, 0);
+        ctx.restore();
+      });
+    }
+
+    if (investCompareAnimFrame) cancelAnimationFrame(investCompareAnimFrame);
+    const duration = 700;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      draw(eased);
+      if (p < 1) { investCompareAnimFrame = requestAnimationFrame(frame); } else { investCompareAnimFrame = null; }
+    }
+    investCompareAnimFrame = requestAnimationFrame(frame);
+  }
+
+  let investGrowthAnimFrame = null;
+  function renderInvestGrowthChart(sim) {
+    const canvas = document.getElementById('investGrowthChart');
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width, h = canvas.height;
+    const rows = sim.rows;
+    const maxVal = Math.max(...rows.map(r => r.value), 1);
+    const padL = 90, padB = 30, padT = 15, padR = 15;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+
+    function x(i) { return rows.length > 1 ? padL + (i / (rows.length - 1)) * plotW : padL; }
+    function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+    function drawStatic() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const v = maxVal * i / 4;
+        const yy = y(v);
+        ctx.fillText(fmtINR(v), padL - 6, yy + 3);
+        ctx.strokeStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + plotW, yy); ctx.stroke();
+      }
+      ctx.textAlign = 'center';
+      rows.forEach((r, i) => { if (i % Math.max(1, Math.round(rows.length / 10)) === 0) ctx.fillText('Y' + r.t, x(i), padT + plotH + 16); });
+    }
+
+    function draw(upToIndex) {
+      drawStatic();
+      ctx.strokeStyle = '#0891b2';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= upToIndex; i++) {
+        const px = x(i), py = y(rows[i].value);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    if (investGrowthAnimFrame) cancelAnimationFrame(investGrowthAnimFrame);
+    const lastIndex = rows.length - 1;
+    const duration = 700;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      const upToIndex = Math.max(0, Math.round(eased * lastIndex));
+      draw(upToIndex);
+      if (p < 1) { investGrowthAnimFrame = requestAnimationFrame(frame); } else { investGrowthAnimFrame = null; }
+    }
+    investGrowthAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function calculateInvest() {
+    const sim = simulateInvest();
+    renderInvestCards(sim);
+    renderInvestTable(sim);
+    renderInvestCompareChart(sim);
+    renderInvestGrowthChart(sim);
+  }
+
+  investIds.forEach(id => {
+    iEl[id].addEventListener('input', calculateInvest);
+    iEl[id].addEventListener('change', calculateInvest);
+  });
+
+  // ================= Tax on Withdrawals Tab =================
+  const taxIds = ['txEarnedIncome','txCostBasisPct','txHoldingPeriod','txNumFolios',
+    'txLtcgExemptionPerFolio','txExemptionUsed','txStcgRate','txLtcgRate',
+    'txProjectionYears'];
+  const txEl = {};
+  taxIds.concat(['txHouseholdBudget']).forEach(id => txEl[id] = document.getElementById(id));
+
+  // Pulls the Combined Annual Need (household budget + kids' education) for year t
+  // from the Budget tab's Year-by-Year Education & Budget Projection table.
+  function combinedNeedAtYear(t) {
+    const rows = lastBudgetSim && lastBudgetSim.rows;
+    if (!rows || !rows.length) return 0;
+    const idx = Math.min(t, rows.length - 1);
+    return rows[idx].combined;
+  }
+
+  function simulateTax() {
+    const combinedNeed = combinedNeedAtYear(0);
+    txEl.txHouseholdBudget.value = Math.round(combinedNeed);
+    const earnedIncome = Math.max(0, parseFloat(txEl.txEarnedIncome.value) || 0);
+    const withdrawal = Math.max(0, combinedNeed - earnedIncome);
+    const costBasisPct = Math.min(100, Math.max(0, parseFloat(txEl.txCostBasisPct.value) || 0)) / 100;
+    const costBasis = withdrawal * costBasisPct;
+    const holdingPeriod = txEl.txHoldingPeriod.value; // 'short' | 'long'
+    const numFolios = Math.max(1, parseInt(txEl.txNumFolios.value) || 1);
+    const exemptionPerFolio = parseFloat(txEl.txLtcgExemptionPerFolio.value) || 0;
+    const exemptionUsed = parseFloat(txEl.txExemptionUsed.value) || 0;
+    const stcgRate = (parseFloat(txEl.txStcgRate.value) || 0) / 100;
+    const ltcgRate = (parseFloat(txEl.txLtcgRate.value) || 0) / 100;
+
+    const totalGain = Math.max(0, withdrawal - costBasis);
+    const gainPerFolio = totalGain / numFolios;
+    const withdrawalPerFolio = withdrawal / numFolios;
+    const remainingExemptionPerFolio = holdingPeriod === 'long' ? Math.max(0, exemptionPerFolio - exemptionUsed) : 0;
+
+    const folios = [];
+    let totalTax = 0;
+    for (let i = 1; i <= numFolios; i++) {
+      let taxableGain, tax;
+      if (holdingPeriod === 'short') {
+        taxableGain = gainPerFolio;
+        tax = taxableGain * stcgRate;
+      } else {
+        taxableGain = Math.max(0, gainPerFolio - remainingExemptionPerFolio);
+        tax = taxableGain * ltcgRate;
+      }
+      totalTax += tax;
+      folios.push({
+        folio: i, withdrawalShare: withdrawalPerFolio, gain: gainPerFolio,
+        exemptionRemaining: remainingExemptionPerFolio, taxableGain, tax,
+        netAfterTax: withdrawalPerFolio - tax
+      });
+    }
+
+    const effectiveRateOnGain = totalGain > 0 ? (totalTax / totalGain) * 100 : 0;
+    const netAmount = withdrawal - totalTax;
+
+    // ---- Yearly projection: each year's capital withdrawal need tracks that year's
+    // Combined Annual Need from the Budget tab (household budget + education costs),
+    // minus earned income. Gain proportion held constant; LTCG exemption resets in
+    // full from Year 2 onward. Years beyond the Budget tab's horizon repeat the last row. ----
+    const projectionYears = Math.max(1, parseInt(txEl.txProjectionYears.value) || 1);
+    const gainRatio = withdrawal > 0 ? totalGain / withdrawal : 0;
+
+    const yearly = [];
+    let cumulativeTax = 0;
+    let cumulativeNet = 0;
+    for (let y = 1; y <= projectionYears; y++) {
+      const withdrawalYear = Math.max(0, combinedNeedAtYear(y - 1) - earnedIncome);
+      const gainYear = withdrawalYear * gainRatio;
+      const gainPerFolioYear = gainYear / numFolios;
+      const exemptionRemainingYear = holdingPeriod === 'long'
+        ? (y === 1 ? remainingExemptionPerFolio : exemptionPerFolio)
+        : 0;
+      let taxableGainPerFolioYear, taxRateYear;
+      if (holdingPeriod === 'short') {
+        taxableGainPerFolioYear = gainPerFolioYear;
+        taxRateYear = stcgRate;
+      } else {
+        taxableGainPerFolioYear = Math.max(0, gainPerFolioYear - exemptionRemainingYear);
+        taxRateYear = ltcgRate;
+      }
+      const taxableGainYear = taxableGainPerFolioYear * numFolios;
+      const taxYear = taxableGainYear * taxRateYear;
+      const netYear = withdrawalYear - taxYear;
+      cumulativeTax += taxYear;
+      cumulativeNet += netYear;
+      yearly.push({
+        year: y, withdrawal: withdrawalYear, gain: gainYear, taxableGain: taxableGainYear,
+        tax: taxYear, net: netYear, cumulativeTax, cumulativeNet
+      });
+    }
+
+    return { withdrawal, combinedNeed, earnedIncome, costBasis, totalGain, holdingPeriod, numFolios, exemptionPerFolio, exemptionUsed,
+      remainingExemptionPerFolio, stcgRate, ltcgRate, totalTax, effectiveRateOnGain, netAmount, folios,
+      projectionYears, yearly };
+  }
+
+  function renderTaxCards(sim) {
+    const container = document.getElementById('taxCards');
+    upsertCard(container, 'txBudget', 'Combined Annual Need (Today)', sim.combinedNeed, '');
+    upsertCard(container, 'txEarned', 'Covered by Earned / Other Income', sim.earnedIncome, 'b');
+    upsertCard(container, 'txWithdrawalCard', 'Capital Withdrawal Required', sim.withdrawal, 'c');
+    upsertCard(container, 'txGain', 'Total Embedded Gain', sim.totalGain, '');
+    upsertCard(container, 'txType', 'Tax Treatment', sim.holdingPeriod === 'short' ? 0 : 1, 'c',
+      (v) => v < 0.5 ? 'STCG · Short-Term' : 'LTCG · Long-Term');
+    upsertCard(container, 'txExemption', 'LTCG Exemption Remaining / Folio', sim.remainingExemptionPerFolio, 'b');
+    upsertCard(container, 'txTax', 'Total Tax Payable', sim.totalTax, 'c');
+    upsertCard(container, 'txRate', 'Effective Tax Rate on Gain', sim.effectiveRateOnGain, 'd',
+      (v) => v.toFixed(2) + '%');
+    upsertCard(container, 'txNet', 'Net Amount Received After Tax', sim.netAmount, 'b');
+    const lastYear = sim.yearly[sim.yearly.length - 1];
+    upsertCard(container, 'txCumTax', `Cumulative Tax Over ${sim.projectionYears}y`, lastYear.cumulativeTax, 'c');
+    upsertCard(container, 'txCumNet', `Cumulative Net Over ${sim.projectionYears}y`, lastYear.cumulativeNet, 'b');
+  }
+
+  function renderTaxTable(sim) {
+    const tbody = document.querySelector('#taxTable tbody');
+    tbody.innerHTML = '';
+    sim.folios.forEach(f => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>Folio ${f.folio}</td>
+        <td>${fmtINR(f.withdrawalShare)}</td>
+        <td>${fmtINR(f.gain)}</td>
+        <td>${fmtINR(f.exemptionRemaining)}</td>
+        <td>${fmtINR(f.taxableGain)}</td>
+        <td><strong>${fmtINR(f.tax)}</strong></td>
+        <td>${fmtINR(f.netAfterTax)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    const label = sim.holdingPeriod === 'short' ? 'STCG' : 'LTCG';
+    document.getElementById('taxFootnote').textContent =
+      `Combined annual need (household budget + education costs) of ${fmtINR(sim.combinedNeed)}, less ${fmtINR(sim.earnedIncome)} covered by earned/other income, ` +
+      `leaves a capital withdrawal need of ${fmtINR(sim.withdrawal)} split evenly across ${sim.numFolios} folio(s) — total embedded gain ` +
+      `${fmtINR(sim.totalGain)}, taxed as ${label} at ${((sim.holdingPeriod === 'short' ? sim.stcgRate : sim.ltcgRate) * 100).toFixed(2)}%. ` +
+      `Total tax across all folios: ${fmtINR(sim.totalTax)} (${sim.effectiveRateOnGain.toFixed(2)}% of the gain), ` +
+      `leaving ${fmtINR(sim.netAmount)} net.`;
+  }
+
+  function renderTaxYearlyTable(sim) {
+    const tbody = document.querySelector('#taxYearlyTable tbody');
+    tbody.innerHTML = '';
+    sim.yearly.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.year}</td>
+        <td>${fmtINR(row.withdrawal)}</td>
+        <td>${fmtINR(row.gain)}</td>
+        <td>${fmtINR(row.taxableGain)}</td>
+        <td><strong>${fmtINR(row.tax)}</strong></td>
+        <td>${fmtINR(row.net)}</td>
+        <td>${fmtINR(row.cumulativeTax)}</td>
+        <td>${fmtINR(row.cumulativeNet)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    const lastYear = sim.yearly[sim.yearly.length - 1];
+    document.getElementById('taxYearlyFootnote').textContent =
+      `Each year's withdrawal tracks that year's Combined Annual Need (household budget + education costs) from the Budget tab, ` +
+      `for ${sim.projectionYears} year(s) — total tax paid across all years: ` +
+      `${fmtINR(lastYear.cumulativeTax)}, total net received: ${fmtINR(lastYear.cumulativeNet)}.`;
+  }
+
+  function calculateTax() {
+    const sim = simulateTax();
+    renderTaxCards(sim);
+    renderTaxTable(sim);
+    renderTaxYearlyTable(sim);
+  }
+
+  taxIds.forEach(id => {
+    txEl[id].addEventListener('input', calculateTax);
+    txEl[id].addEventListener('change', calculateTax);
+  });
+
+  // ================= Resident vs NRA Tax Tab =================
+  const globalNumIds = ['giSalary','giInterest','giRental','giDividends','giDebtGains','giOther','giStcg','giLtcg',
+    'giLtcgExemption','giCessRate','usInterest','usDividends','usRental','usCapGains',
+    'usInterestRate','usDividendRate','usRentalRate','usCapGainsRate','usSpxIncome','usSpxLtRate','usSpxStRate'];
+  const globalCheckIds = ['usPortfolioExempt','usPresent183','giIncludeForeignIncome'];
+  const globalSelectIds = ['usCapGainsHolding'];
+  const gEl = {};
+  globalNumIds.concat(globalCheckIds).concat(globalSelectIds).forEach(id => gEl[id] = document.getElementById(id));
+
+  // FY 2025-26 new-regime India slabs (progressive brackets).
+  const INDIA_SLABS = [
+    { upto: 400000, rate: 0 },
+    { upto: 800000, rate: 0.05 },
+    { upto: 1200000, rate: 0.10 },
+    { upto: 1600000, rate: 0.15 },
+    { upto: 2000000, rate: 0.20 },
+    { upto: 2400000, rate: 0.25 },
+    { upto: Infinity, rate: 0.30 }
+  ];
+  function indiaSlabTax(income) {
+    let tax = 0, prev = 0;
+    for (const b of INDIA_SLABS) {
+      if (income <= prev) break;
+      tax += (Math.min(income, b.upto) - prev) * b.rate;
+      prev = b.upto;
+    }
+    return tax;
+  }
+  // Slab tax net of the Section 87A rebate (nil slab-tax when slab-taxed income <= 12L).
+  function indiaSlabTaxWithRebate(income) {
+    return income <= 1200000 ? 0 : indiaSlabTax(income);
+  }
+
+  function simulateGlobalTax() {
+    // ---- USA Non-Resident Alien (computed first — India needs these amounts + tax paid) ----
+    const usInterestAmt = parseFloat(gEl.usInterest.value) || 0;
+    const portfolioExempt = gEl.usPortfolioExempt.checked;
+    const usInterestRate = (parseFloat(gEl.usInterestRate.value) || 0) / 100;
+    const usDividendsAmt = parseFloat(gEl.usDividends.value) || 0;
+    const usDividendRate = (parseFloat(gEl.usDividendRate.value) || 0) / 100;
+    const usRentalAmt = parseFloat(gEl.usRental.value) || 0;
+    const usRentalRate = (parseFloat(gEl.usRentalRate.value) || 0) / 100;
+    const usCapGainsAmt = parseFloat(gEl.usCapGains.value) || 0;
+    const present183 = gEl.usPresent183.checked;
+    const usCapGainsRate = (parseFloat(gEl.usCapGainsRate.value) || 0) / 100;
+    const foreignHoldingLong = gEl.usCapGainsHolding.value === 'long';
+    const usSpxIncomeAmt = parseFloat(gEl.usSpxIncome.value) || 0;
+    const usSpxLtRate = (parseFloat(gEl.usSpxLtRate.value) || 0) / 100;
+    const usSpxStRate = (parseFloat(gEl.usSpxStRate.value) || 0) / 100;
+    const spxBlendedRate = 0.6 * usSpxLtRate + 0.4 * usSpxStRate; // IRC §1256 60/40 character split
+
+    const interestTax = portfolioExempt ? 0 : usInterestAmt * usInterestRate;
+    const dividendTax = usDividendsAmt * usDividendRate;
+    const rentalTax = usRentalAmt * usRentalRate;
+    const gainsTax = present183 ? usCapGainsAmt * usCapGainsRate : 0;
+    // Section 1256 gain is capital-gain-character for an NRA, so it's only US-taxed under the same 183-day rule.
+    const spxTax = present183 ? usSpxIncomeAmt * spxBlendedRate : 0;
+    const totalUsTax = interestTax + dividendTax + rentalTax + gainsTax + spxTax;
+
+    const usGrossIncome = usInterestAmt + usDividendsAmt + usRentalAmt + usCapGainsAmt + usSpxIncomeAmt;
+    const usNetIncome = usGrossIncome - totalUsTax;
+    const usEffectiveRate = usGrossIncome > 0 ? (totalUsTax / usGrossIncome) * 100 : 0;
+
+    const usSources = [
+      { label: 'US Bank / FD Interest', gross: usInterestAmt, basis: portfolioExempt ? 'Exempt (Portfolio Interest)' : `Flat ${(usInterestRate * 100).toFixed(1)}% FDAP Withholding`, tax: interestTax },
+      { label: 'US Dividends', gross: usDividendsAmt, basis: `Flat ${(usDividendRate * 100).toFixed(1)}% Withholding`, tax: dividendTax },
+      { label: 'US Rental Income', gross: usRentalAmt, basis: `Flat ${(usRentalRate * 100).toFixed(1)}% Gross (No ECI Election)`, tax: rentalTax },
+      { label: 'US Capital Gains', gross: usCapGainsAmt, basis: present183 ? `Flat ${(usCapGainsRate * 100).toFixed(1)}% (183-Day Rule)` : 'Not Taxable in US (NRA, < 183 Days Present)', tax: gainsTax },
+      { label: 'SPX 0DTE (§1256, 60/40 Blended)', gross: usSpxIncomeAmt, basis: present183 ? `Blended ${(spxBlendedRate * 100).toFixed(1)}% (60% LT@${(usSpxLtRate * 100).toFixed(0)}% + 40% ST@${(usSpxStRate * 100).toFixed(0)}%)` : 'Not Taxable in US (NRA, < 183 Days Present)', tax: spxTax }
+    ];
+
+    const spotRateEl = document.getElementById('spotRate');
+    const spotRate = spotRateEl ? (parseFloat(spotRateEl.value) || 0) : 0;
+    const usTaxPaidINR = totalUsTax * spotRate;
+
+    // ---- India Resident (taxed on worldwide income — domestic sources + US-source income) ----
+    const salary = parseFloat(gEl.giSalary.value) || 0;
+    const interest = parseFloat(gEl.giInterest.value) || 0;
+    const rental = parseFloat(gEl.giRental.value) || 0;
+    const dividends = parseFloat(gEl.giDividends.value) || 0;
+    const debtGains = parseFloat(gEl.giDebtGains.value) || 0;
+    const other = parseFloat(gEl.giOther.value) || 0;
+    const stcg = parseFloat(gEl.giStcg.value) || 0;
+    const ltcg = parseFloat(gEl.giLtcg.value) || 0;
+    const ltcgExemption = parseFloat(gEl.giLtcgExemption.value) || 0;
+    const cessRate = (parseFloat(gEl.giCessRate.value) || 0) / 100;
+    const includeForeignIncome = gEl.giIncludeForeignIncome.checked;
+
+    const standardDeduction = salary > 0 ? Math.min(salary, 75000) : 0;
+    const salaryTaxable = Math.max(0, salary - standardDeduction);
+    const domesticOrdinaryIncome = salaryTaxable + interest + rental + dividends + debtGains + other;
+
+    // Foreign amounts converted to INR; interest/dividends/rental are always "ordinary" (slab) income for a resident.
+    const usInterestINR = usInterestAmt * spotRate;
+    const usDividendsINR = usDividendsAmt * spotRate;
+    const usRentalINR = usRentalAmt * spotRate;
+    const usCapGainsINR = usCapGainsAmt * spotRate;
+    // India treats derivatives/F&O trading (incl. SPX 0DTE) as non-speculative business income, always slab-taxed,
+    // regardless of the US §1256 60/40 character or the NRA 183-day rule.
+    const usSpxIncomeINR = usSpxIncomeAmt * spotRate;
+    const foreignOrdinaryINR = includeForeignIncome ? (usInterestINR + usDividendsINR + usRentalINR + usSpxIncomeINR) : 0;
+    // Foreign capital gain: short-term folds into the slab pool; long-term is its own flat-rate bucket (no exemption).
+    const foreignGainIsShortTerm = includeForeignIncome && !foreignHoldingLong;
+    const foreignGainIsLongTerm = includeForeignIncome && foreignHoldingLong;
+    const foreignShortTermGainINR = foreignGainIsShortTerm ? usCapGainsINR : 0;
+    const foreignLongTermGainINR = foreignGainIsLongTerm ? usCapGainsINR : 0;
+
+    const regularIncome = domesticOrdinaryIncome + foreignOrdinaryINR + foreignShortTermGainINR;
+    const slabTaxAmt = indiaSlabTaxWithRebate(regularIncome);
+    const rebateApplied = regularIncome <= 1200000;
+
+    const stcgTax = stcg * 0.20;
+    const ltcgTaxable = Math.max(0, ltcg - ltcgExemption);
+    const ltcgTax = ltcgTaxable * 0.125;
+    const foreignLtcgTax = foreignLongTermGainINR * 0.125; // no ₹1.25L exemption on non-equity foreign assets
+
+    const taxBeforeCess = slabTaxAmt + stcgTax + ltcgTax + foreignLtcgTax;
+    const cess = taxBeforeCess * cessRate;
+    const totalIndiaTaxGross = taxBeforeCess + cess;
+
+    // Foreign Tax Credit (DTAA, ordinary-credit method): India tax attributable to the foreign
+    // income, capped by the US tax actually paid on it — computed as the marginal slab tax caused
+    // by adding the foreign ordinary/short-term income, plus the full foreign LTCG tax, plus their
+    // proportional share of cess.
+    const domesticSlabTax = indiaSlabTaxWithRebate(domesticOrdinaryIncome);
+    const incrementalOrdinaryTax = Math.max(0, slabTaxAmt - domesticSlabTax);
+    const indiaTaxOnForeignBeforeCess = incrementalOrdinaryTax + foreignLtcgTax;
+    const indiaTaxOnForeignCess = indiaTaxOnForeignBeforeCess * cessRate;
+    const indiaTaxOnForeignIncome = indiaTaxOnForeignBeforeCess + indiaTaxOnForeignCess;
+    const foreignTaxCredit = includeForeignIncome ? Math.min(usTaxPaidINR, indiaTaxOnForeignIncome) : 0;
+    const totalIndiaTax = totalIndiaTaxGross - foreignTaxCredit;
+
+    const indiaGrossIncome = salary + interest + rental + dividends + debtGains + other + stcg + ltcg
+      + foreignOrdinaryINR + foreignShortTermGainINR + foreignLongTermGainINR;
+    const indiaNetIncome = indiaGrossIncome - totalIndiaTax;
+    const indiaEffectiveRate = indiaGrossIncome > 0 ? (totalIndiaTax / indiaGrossIncome) * 100 : 0;
+
+    // Proportionally allocate the combined slab tax across all slab-taxed sources (domestic + foreign), for display.
+    const share = (amt) => regularIncome > 0 ? (amt / regularIncome) * slabTaxAmt : 0;
+    const indiaSources = [
+      { label: 'Salary / Pension', gross: salary, taxable: salaryTaxable, basis: 'Slab (progressive)', tax: share(salaryTaxable) },
+      { label: 'Bank / FD Interest', gross: interest, taxable: interest, basis: 'Slab (progressive)', tax: share(interest) },
+      { label: 'Rental Income', gross: rental, taxable: rental, basis: 'Slab (progressive)', tax: share(rental) },
+      { label: 'Dividends (Indian Equity)', gross: dividends, taxable: dividends, basis: 'Slab (progressive)', tax: share(dividends) },
+      { label: 'Debt MF / Bond Gains', gross: debtGains, taxable: debtGains, basis: 'Slab (progressive)', tax: share(debtGains) },
+      { label: 'Other Income', gross: other, taxable: other, basis: 'Slab (progressive)', tax: share(other) },
+      { label: 'Equity STCG', gross: stcg, taxable: stcg, basis: 'Flat 20%', tax: stcgTax },
+      { label: 'Equity LTCG', gross: ltcg, taxable: ltcgTaxable, basis: 'Flat 12.5% (after exemption)', tax: ltcgTax }
+    ];
+    if (includeForeignIncome) {
+      indiaSources.push(
+        { label: 'US Interest (Foreign Income)', gross: usInterestINR, taxable: usInterestINR, basis: 'Slab (Worldwide Income)', tax: share(usInterestINR) },
+        { label: 'US Dividends (Foreign Income)', gross: usDividendsINR, taxable: usDividendsINR, basis: 'Slab (Worldwide Income)', tax: share(usDividendsINR) },
+        { label: 'US Rental (Foreign Income)', gross: usRentalINR, taxable: usRentalINR, basis: 'Slab (Worldwide Income)', tax: share(usRentalINR) },
+        { label: 'SPX 0DTE Options Trading (Foreign Business Income)', gross: usSpxIncomeINR, taxable: usSpxIncomeINR, basis: 'Slab (Non-Speculative Business Income, Worldwide)', tax: share(usSpxIncomeINR) },
+        { label: 'US Capital Gains (Foreign Income)', gross: usCapGainsINR, taxable: foreignGainIsLongTerm ? foreignLongTermGainINR : foreignShortTermGainINR,
+          basis: foreignGainIsLongTerm ? 'Flat 12.5% (Foreign LTCG, no exemption)' : 'Slab (Worldwide Income, Foreign STCG)',
+          tax: foreignGainIsLongTerm ? foreignLtcgTax : share(foreignShortTermGainINR) },
+        { label: 'Less: Foreign Tax Credit (US Tax Paid, DTAA)', gross: usTaxPaidINR, taxable: null, basis: 'Credit against India tax on the same income', tax: -foreignTaxCredit }
+      );
+    }
+
+    // ---- Combined view ----
+    const combinedTaxINR = totalIndiaTax + usTaxPaidINR;
+    const combinedNetINR = indiaGrossIncome - combinedTaxINR;
+
+    return {
+      indiaGrossIncome, indiaNetIncome, totalIndiaTax, indiaEffectiveRate, rebateApplied, cess, indiaSources,
+      includeForeignIncome, foreignTaxCredit, indiaTaxOnForeignIncome,
+      usGrossIncome, usNetIncome, totalUsTax, usEffectiveRate, usSources,
+      spotRate, usTaxPaidINR, combinedTaxINR, combinedNetINR
+    };
+  }
+
+  function renderGlobalCards(sim) {
+    const container = document.getElementById('globalCards');
+    upsertCard(container, 'gIndiaIncome', 'India Gross Income (₹, Worldwide)', sim.indiaGrossIncome, '');
+    upsertCard(container, 'gIndiaTax', 'India Total Tax After FTC (₹)', sim.totalIndiaTax, 'c');
+    upsertCard(container, 'gIndiaRate', 'India Effective Rate', sim.indiaEffectiveRate, 'd', (v) => v.toFixed(2) + '%');
+    upsertCard(container, 'gFtc', 'Foreign Tax Credit Claimed (₹)', sim.foreignTaxCredit, 'b');
+    upsertCard(container, 'gUsIncome', 'USA Gross Income ($)', sim.usGrossIncome, 'b', fmtUSD);
+    upsertCard(container, 'gUsTax', 'USA NRA Total Tax ($)', sim.totalUsTax, 'c', fmtUSD);
+    upsertCard(container, 'gUsRate', 'USA Effective Rate', sim.usEffectiveRate, 'd', (v) => v.toFixed(2) + '%');
+    upsertCard(container, 'gCombinedTax', 'Combined Tax (₹ equiv.)', sim.combinedTaxINR, 'c');
+    upsertCard(container, 'gCombinedNet', 'Combined Net Income (₹ equiv.)', sim.combinedNetINR, 'b');
+  }
+
+  function renderIndiaTaxTable(sim) {
+    const tbody = document.querySelector('#indiaTaxTable tbody');
+    tbody.innerHTML = '';
+    sim.indiaSources.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${s.label}</td>
+        <td>${fmtINR(s.gross)}</td>
+        <td>${s.taxable === null ? '-' : fmtINR(s.taxable)}</td>
+        <td>${s.basis}</td>
+        <td><strong>${fmtINR(s.tax)}</strong></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('indiaTaxFootnote').textContent =
+      `${sim.rebateApplied ? 'Section 87A rebate applied — nil tax on slab-taxed income. ' : ''}` +
+      `${sim.includeForeignIncome ? `Worldwide income includes US-source amounts; Foreign Tax Credit of ${fmtINR(sim.foreignTaxCredit)} claimed against the ${fmtINR(sim.indiaTaxOnForeignIncome)} of India tax attributable to that foreign income. ` : 'US-source income excluded from this computation (toggle above is off). '}` +
+      `Cess added on top of slab + special-rate tax. Total India tax after credit: ${fmtINR(sim.totalIndiaTax)} ` +
+      `(${sim.indiaEffectiveRate.toFixed(2)}% of gross income), net income: ${fmtINR(sim.indiaNetIncome)}.`;
+  }
+
+  function renderUsaTaxTable(sim) {
+    const tbody = document.querySelector('#usaTaxTable tbody');
+    tbody.innerHTML = '';
+    sim.usSources.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${s.label}</td>
+        <td>${fmtUSD(s.gross)}</td>
+        <td>${s.basis}</td>
+        <td><strong>${fmtUSD(s.tax)}</strong></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('usaTaxFootnote').textContent =
+      `Total USA NRA tax: ${fmtUSD(sim.totalUsTax)} (${sim.usEffectiveRate.toFixed(2)}% of gross income), ` +
+      `net income: ${fmtUSD(sim.usNetIncome)}. Converted at FX spot rate ${sim.spotRate.toFixed(4)} (from Retirement Plan tab): ` +
+      `US tax paid ≈ ${fmtINR(sim.usTaxPaidINR)}. Combined worldwide tax (India after FTC + US) ≈ ${fmtINR(sim.combinedTaxINR)}, combined net ≈ ${fmtINR(sim.combinedNetINR)}.`;
+  }
+
+  function calculateGlobalTax() {
+    const sim = simulateGlobalTax();
+    renderGlobalCards(sim);
+    renderIndiaTaxTable(sim);
+    renderUsaTaxTable(sim);
+  }
+
+  globalNumIds.forEach(id => {
+    gEl[id].addEventListener('input', calculateGlobalTax);
+    gEl[id].addEventListener('change', calculateGlobalTax);
+  });
+  globalCheckIds.concat(globalSelectIds).forEach(id => {
+    gEl[id].addEventListener('change', calculateGlobalTax);
+  });
+
+  calculate();
+  calculateBudget();
+  calculateInvest();
+  calculateTax();
+  calculateGlobalTax();
+})();
+</script>
+</body>
+</html>

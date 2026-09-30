@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loan EMI Calculator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Segoe UI, Arial, sans-serif;
+    background: #f2f4f7;
+    margin: 0;
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+  }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    padding: 30px 36px;
+    width: 100%;
+    max-width: 480px;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: #1f2937;
+  }
+  p.subtitle {
+    margin: 0 0 24px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="number"]:focus {
+    border-color: #2563eb;
+  }
+  .results {
+    margin-top: 26px;
+    padding: 18px 20px;
+    background: #eff6ff;
+    border-radius: 8px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 14px;
+    color: #1f2937;
+  }
+  .row span:first-child { color: #4b5563; }
+  .row.total {
+    border-top: 1px solid #cbd5e1;
+    margin-top: 8px;
+    padding-top: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    color: #1d4ed8;
+  }
+  .error {
+    color: #b91c1c;
+    font-size: 13px;
+    margin-top: 10px;
+    min-height: 16px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Loan EMI Calculator</h1>
+    <p class="subtitle">Enter the loan details below — results update automatically as you type.</p>
+
+    <label for="principal">Loan Amount (Principal)</label>
+    <input type="number" id="principal" value="500000" min="0" step="1000">
+
+    <label for="rate">Annual Interest Rate (%)</label>
+    <input type="number" id="rate" value="8.5" min="0" step="0.01">
+
+    <label for="tenure">Loan Tenure (Years)</label>
+    <input type="number" id="tenure" value="5" min="0" step="1">
+
+    <div class="error" id="error"></div>
+
+    <div class="results">
+      <div class="row"><span>Monthly EMI</span><span id="emi">-</span></div>
+      <div class="row"><span>Total Interest Payable</span><span id="totalInterest">-</span></div>
+      <div class="row total"><span>Total Payment (Principal + Interest)</span><span id="totalPayment">-</span></div>
+    </div>
+  </div>
+
+<script>
+  const principalEl = document.getElementById('principal');
+  const rateEl = document.getElementById('rate');
+  const tenureEl = document.getElementById('tenure');
+  const emiEl = document.getElementById('emi');
+  const totalInterestEl = document.getElementById('totalInterest');
+  const totalPaymentEl = document.getElementById('totalPayment');
+  const errorEl = document.getElementById('error');
+
+  function formatCurrency(value) {
+    return value.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  }
+
+  function calculate() {
+    const principal = parseFloat(principalEl.value);
+    const annualRate = parseFloat(rateEl.value);
+    const years = parseFloat(tenureEl.value);
+
+    errorEl.textContent = '';
+
+    if (isNaN(principal) || isNaN(annualRate) || isNaN(years) || principal <= 0 || years <= 0 || annualRate < 0) {
+      emiEl.textContent = '-';
+      totalInterestEl.textContent = '-';
+      totalPaymentEl.textContent = '-';
+      errorEl.textContent = 'Please enter valid positive values in all fields.';
+      return;
+    }
+
+    const months = years * 12;
+    const monthlyRate = annualRate / 12 / 100;
+
+    let emi;
+    if (monthlyRate === 0) {
+      emi = principal / months;
+    } else {
+      const factor = Math.pow(1 + monthlyRate, months);
+      emi = (principal * monthlyRate * factor) / (factor - 1);
+    }
+
+    const totalPayment = emi * months;
+    const totalInterest = totalPayment - principal;
+
+    emiEl.textContent = formatCurrency(emi);
+    totalInterestEl.textContent = formatCurrency(totalInterest);
+    totalPaymentEl.textContent = formatCurrency(totalPayment);
+  }
+
+  [principalEl, rateEl, tenureEl].forEach(el => {
+    el.addEventListener('input', calculate);
+  });
+
+  calculate();
+</script>
+</body>
+</html>
